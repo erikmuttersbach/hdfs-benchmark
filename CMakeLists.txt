@@ -1,9 +1,6 @@
 cmake_minimum_required(VERSION 3.2)
 project(hdfs_benchmark)
 
-set(LIBHDFS_LIBRARY /usr/lib/hadoop/lib/native/libhdfs.a)
-set(LIBHADOOP_LIBRARY /usr/lib/hadoop/lib/native/libhadoop.so)
-
 set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake_modules")
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
