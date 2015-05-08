@@ -34,6 +34,7 @@ typedef enum {
 
 struct {
     const char *path = NULL;
+    const char *socket = "/usr/lib/hadoop/lib/native/";
     size_t buffer_size = 4096;
     int verbose = false;
     int skip_checksums = false;
@@ -63,6 +64,7 @@ void parse_options(int argc, char *argv[]) {
             {"buffer", optional_argument, 0,                'b'},
             {"help",   optional_argument, 0,                'h'},
             {"type",   optional_argument, 0,                't'},
+            {"socket",   optional_argument, 0,'s'},
             {"skip-checksums",     no_argument, &options.skip_checksums, 1},
             {"v",      no_argument,       &options.verbose, 'v'},
             {0, 0,                        0,                0}
@@ -83,6 +85,9 @@ void parse_options(int argc, char *argv[]) {
             case 'h':
                 print_usage();
                 exit(1);
+            case 's':
+                options.socket = optarg;
+                break;
             case 't':
                 if(strcmp(optarg, "standard") == 0) {
                     options.type = type_t::standard;
@@ -188,7 +193,7 @@ int main(int argc, char *argv[]) {
     hdfsBuilderSetNameNodePort(hdfsBuilder, 9000);
     if(options.type == type_t::undefined || options.type == type_t::sc) {
         hdfsBuilderConfSetStr(hdfsBuilder, "dfs.client.read.shortcircuit", "true");
-        hdfsBuilderConfSetStr(hdfsBuilder, "dfs.domain.socket.path", "/var/lib/hadoop-hdfs/dn_socket");
+        hdfsBuilderConfSetStr(hdfsBuilder, "dfs.domain.socket.path", options.socket);
         // TODO Test
         hdfsBuilderConfSetStr(hdfsBuilder, "dfs.client.domain.socket.data.traffic", "true");
         hdfsBuilderConfSetStr(hdfsBuilder, "dfs.client.read.shortcircuit.streams.cache.size", "4000");
