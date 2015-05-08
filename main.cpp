@@ -34,7 +34,7 @@ typedef enum {
 
 struct {
     const char *path = NULL;
-    const char *socket = "/usr/lib/hadoop/lib/native/";
+    const char *socket = "/var/lib/hadoop-hdfs/dn_socket";
     const char *namenode = "localhost";
     int namenode_port = 9000;
     size_t buffer_size = 4096;
