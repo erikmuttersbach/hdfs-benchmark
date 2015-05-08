@@ -35,6 +35,8 @@ typedef enum {
 struct {
     const char *path = NULL;
     const char *socket = "/usr/lib/hadoop/lib/native/";
+    const char *namenode = "localhost";
+    int namenode_port = 9000;
     size_t buffer_size = 4096;
     int verbose = false;
     int skip_checksums = false;
@@ -42,11 +44,13 @@ struct {
 } options;
 
 void print_usage() {
-    printf("hdfs_benchmark -f FILE [-b BUFFER_SIZE] [-t TYPE]\n"
-                   "  -f, --file        File to read\n"
-                   "  -b, --buffer      Buffer size, defaults to 4096\n"
-                   "  -t, --type        One of standard, sc, zcr\n"
-                   "  -v, --verbose     Verbose output, e.g. statistics, formatted speed\n");
+    printf("hdfs_benchmark -f FILE [-b BUFFER_SIZE] [-t TYPE] [-n NAMENODE] [-p NAMENODE_PORT]\n"
+                   "  -f, --file           File to read\n"
+                   "  -b, --buffer         Buffer size, defaults to 4096\n"
+                   "  -t, --type           One of standard, sc, zcr\n"
+                   "  -n, --namenode       Namenode hostname, default: localhost\n"
+                   "  -p, --namenode-port  Namenode port, default: 9000\n"
+                   "  -v, --verbose        Verbose output, e.g. statistics, formatted speed\n");
 }
 
 void parse_options(int argc, char *argv[]) {
@@ -64,9 +68,13 @@ void parse_options(int argc, char *argv[]) {
             {"buffer", optional_argument, 0,                'b'},
             {"help",   optional_argument, 0,                'h'},
             {"type",   optional_argument, 0,                't'},
-            {"socket",   optional_argument, 0,'s'},
-            {"skip-checksums",     no_argument, &options.skip_checksums, 1},
+            {"socket", optional_argument, 0,                's'},
+            {"namenode", optional_argument, 0,                'n'},
+            {"namenode-port", optional_argument, 0,                'p'},
             {"v",      no_argument,       &options.verbose, 'v'},
+
+            {"skip-checksums",     no_argument, &options.skip_checksums, 1},
+
             {0, 0,                        0,                0}
     };
 
@@ -81,6 +89,12 @@ void parse_options(int argc, char *argv[]) {
                 break;
             case 'b':
                 options.buffer_size = atoi(optarg);
+                break;
+            case 'n':
+                options.namenode = optarg;
+                break;
+            case 'p':
+                options.namenode_port = atoi(optarg);
                 break;
             case 'h':
                 print_usage();
@@ -189,8 +203,8 @@ int main(int argc, char *argv[]) {
     parse_options(argc, argv);
 
     struct hdfsBuilder *hdfsBuilder = hdfsNewBuilder();
-    hdfsBuilderSetNameNode(hdfsBuilder, "localhost");
-    hdfsBuilderSetNameNodePort(hdfsBuilder, 9000);
+    hdfsBuilderSetNameNode(hdfsBuilder, options.namenode);
+    hdfsBuilderSetNameNodePort(hdfsBuilder, options.namenode_port);
     if(options.type == type_t::undefined || options.type == type_t::sc) {
         hdfsBuilderConfSetStr(hdfsBuilder, "dfs.client.read.shortcircuit", "true");
         hdfsBuilderConfSetStr(hdfsBuilder, "dfs.domain.socket.path", options.socket);
