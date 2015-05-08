@@ -73,7 +73,7 @@ void parse_options(int argc, char *argv[]) {
     int c = 0;
     while (c >= 0) {
         int option_index;
-        c = getopt_long(argc, argv, "f:b:t:", options_config, &option_index);
+        c = getopt_long(argc, argv, "f:b:n:p:t:s:", options_config, &option_index);
 
         switch (c) {
             case 'f':
