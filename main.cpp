@@ -29,7 +29,7 @@ timespec timespec_diff(timespec start, timespec end) {
 }
 
 typedef enum {
-    undefined = 0, standard, sc, zcr
+    undefined = 0, standard, scr, zcr
 } type_t;
 
 struct {
@@ -63,7 +63,7 @@ void parse_options(int argc, char *argv[]) {
             {"socket", optional_argument, 0,                's'},
             {"namenode", optional_argument, 0,              'n'},
             {"namenode-port", optional_argument, 0,         'p'},
-            {"v",      no_argument,       &options.verbose, 'v'},
+            {"verbose",      no_argument,       &options.verbose, 'v'},
 
             {"skip-checksums",     no_argument, &options.skip_checksums, 1},
 
@@ -73,9 +73,12 @@ void parse_options(int argc, char *argv[]) {
     int c = 0;
     while (c >= 0) {
         int option_index;
-        c = getopt_long(argc, argv, "f:b:n:p:t:s:", options_config, &option_index);
+        c = getopt_long(argc, argv, "f:b:n:p:t:s:v", options_config, &option_index);
 
         switch (c) {
+            case 'v':
+                options.verbose = true;
+                break;
             case 'f':
                 options.path = optarg;
                 break;
@@ -97,8 +100,8 @@ void parse_options(int argc, char *argv[]) {
             case 't':
                 if(strcmp(optarg, "standard") == 0) {
                     options.type = type_t::standard;
-                } else  if(strcmp(optarg, "sc") == 0) {
-                    options.type = type_t::sc;
+                } else  if(strcmp(optarg, "scr") == 0) {
+                    options.type = type_t::scr;
                 } else  if(strcmp(optarg, "zcr") == 0) {
                     options.type = type_t::zcr;
                 } else {
@@ -165,6 +168,9 @@ bool readHdfsZcr(hdfsFS fs, hdfsFile file, hdfsFileInfo *fileInfo) {
 
     hadoopRzOptionsFree(rzOptions);
 
+    if(options.verbose) {
+        cout << "Performed ZCR" << endl;
+    }
     return true;
 }
 
@@ -188,22 +194,34 @@ bool readHdfsStandard(hdfsFS fs, hdfsFile file, hdfsFileInfo *fileInfo) {
 
     free(buffer);
 
+    if(options.verbose) {
+        cout << "Performed Standard/SCR" << endl;
+    }
     return true;
 }
 
 int main(int argc, char *argv[]) {
     parse_options(argc, argv);
 
+    if(options.verbose) {
+        cout << "Namenode:  " << options.namenode << ":" << options.namenode_port << endl;
+        cout << "Socket:    " << options.socket << endl;
+        cout << "File:      " << options.path << endl;
+        cout << "Buffer:    " << options.buffer_size << endl;
+        cout << "Checksums: " << (options.skip_checksums ? "false" : "true") << endl;
+        cout << "Type:      " << options.type << endl;
+    }
+
     struct hdfsBuilder *hdfsBuilder = hdfsNewBuilder();
     hdfsBuilderSetNameNode(hdfsBuilder, options.namenode);
     hdfsBuilderSetNameNodePort(hdfsBuilder, options.namenode_port);
-    if(options.type == type_t::undefined || options.type == type_t::sc) {
+    if(options.type == type_t::undefined || options.type == type_t::scr || options.type == type_t::zcr) {
         hdfsBuilderConfSetStr(hdfsBuilder, "dfs.client.read.shortcircuit", "true");
         hdfsBuilderConfSetStr(hdfsBuilder, "dfs.domain.socket.path", options.socket);
         // TODO Test
-        hdfsBuilderConfSetStr(hdfsBuilder, "dfs.client.domain.socket.data.traffic", "true");
-        hdfsBuilderConfSetStr(hdfsBuilder, "dfs.client.read.shortcircuit.streams.cache.size", "4000");
-        hdfsBuilderConfSetStr(hdfsBuilder, "dfs.client.read.shortcircuit.skip.checksum", options.skip_checksums ? "true" : "false");
+        //hdfsBuilderConfSetStr(hdfsBuilder, "dfs.client.domain.socket.data.traffic", "true");
+        //hdfsBuilderConfSetStr(hdfsBuilder, "dfs.client.read.shortcircuit.streams.cache.size", "4000");
+        hdfsBuilderConfSetStr(hdfsBuilder, "dfs.client.read.shortcircuit.skip.checksum", options.skip_checksums > 0 ? "true" : "false");
     }
 
     // Connect
@@ -227,7 +245,7 @@ int main(int argc, char *argv[]) {
 
         if(options.type == type_t::undefined) {
             if (!readHdfsZcr(fs, file, fileInfo)) {
-			    cout << "Falling back to standard read" << endl;
+                cout << "Falling back to standard read" << endl;
                 readHdfsStandard(fs, file, fileInfo);
             }
         } else if(options.type == type_t::zcr) {
@@ -237,13 +255,15 @@ int main(int argc, char *argv[]) {
         }
 
         // Get Statistics
-        struct hdfsReadStatistics *stats;
-        hdfsFileGetReadStatistics(file, &stats);
-        printf("Statistics:\n\tTotal: %lu\n\tLocal: %lu\n\tShort Circuit: %lu\n\tZero Copy Read: %lu\n",
-               stats->totalBytesRead, stats->totalLocalBytesRead, stats->totalShortCircuitBytesRead,
-               stats->totalZeroCopyBytesRead);
+        if(options.verbose) {
+            struct hdfsReadStatistics *stats;
+            hdfsFileGetReadStatistics(file, &stats);
+            printf("Statistics:\n\tTotal: %lu\n\tLocal: %lu\n\tShort Circuit: %lu\n\tZero Copy Read: %lu\n",
+                   stats->totalBytesRead, stats->totalLocalBytesRead, stats->totalShortCircuitBytesRead,
+                   stats->totalZeroCopyBytesRead);
+            hdfsFileFreeReadStatistics(stats);
+        }
 
-        hdfsFileFreeReadStatistics(stats);
         hdfsFreeFileInfo(fileInfo, 1);
         hdfsCloseFile(fs, file);
     }
@@ -252,7 +272,11 @@ int main(int argc, char *argv[]) {
     struct timespec d = timespec_diff(start, end);
     double speed = (((double) fileSize) / ((double) d.tv_sec + d.tv_nsec / 1000000000.0)) / (1024.0 * 1024.0);
 
-    printf("Read %f MB with %lfMiB/s\n", ((double) fileSize) / (1024.0 * 1024.0), speed);
+    if(options.verbose) {
+        printf("Read %f MB with %lfMiB/s\n", ((double) fileSize) / (1024.0 * 1024.0), speed);
+    } else {
+        printf("%f\n", speed);
+    }
 
     hdfsDisconnect(fs);
     //hdfsFreeBuilder(hdfsBuilder);
