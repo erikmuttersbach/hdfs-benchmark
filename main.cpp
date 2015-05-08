@@ -56,21 +56,13 @@ void print_usage() {
 void parse_options(int argc, char *argv[]) {
 
     static struct option options_config[] = {
-            //{"force-hdfs-standard", no_argument, &options.force_hdfs_standard_read, 1},
-            //{"use-hdfs-pread", no_argument, &options.use_hdfs_pread, 1},
-/*#ifdef __linux__
-            {"advise-sequential",   no_argument, &options.advise_sequential, 1},
-            {"advise-willneed",     no_argument, &options.advise_willneed, 1},
-            {"use-readahead",       no_argument, &options.use_readahead, 1},
-            {"use-ioprio",          no_argument, &options.use_ioprio, 1},
-#endif*/
             {"file",   required_argument, 0,                'f'},
             {"buffer", optional_argument, 0,                'b'},
             {"help",   optional_argument, 0,                'h'},
             {"type",   optional_argument, 0,                't'},
             {"socket", optional_argument, 0,                's'},
-            {"namenode", optional_argument, 0,                'n'},
-            {"namenode-port", optional_argument, 0,                'p'},
+            {"namenode", optional_argument, 0,              'n'},
+            {"namenode-port", optional_argument, 0,         'p'},
             {"v",      no_argument,       &options.verbose, 'v'},
 
             {"skip-checksums",     no_argument, &options.skip_checksums, 1},
