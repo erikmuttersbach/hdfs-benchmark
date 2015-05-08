@@ -227,6 +227,7 @@ int main(int argc, char *argv[]) {
 
         if(options.type == type_t::undefined) {
             if (!readHdfsZcr(fs, file, fileInfo)) {
+			    cout << "Falling back to standard read" << endl;
                 readHdfsStandard(fs, file, fileInfo);
             }
         } else if(options.type == type_t::zcr) {
