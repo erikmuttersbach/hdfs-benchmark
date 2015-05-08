@@ -36,6 +36,7 @@ struct {
     const char *path = NULL;
     size_t buffer_size = 4096;
     int verbose = false;
+    int skip_checksums = false;
     type_t type = type_t::undefined;
 } options;
 
@@ -62,9 +63,8 @@ void parse_options(int argc, char *argv[]) {
             {"buffer", optional_argument, 0,                'b'},
             {"help",   optional_argument, 0,                'h'},
             {"type",   optional_argument, 0,                't'},
+            {"skip-checksums",     no_argument, &options.skip_checksums, 1},
             {"v",      no_argument,       &options.verbose, 'v'},
-            //{"type",        required_argument, 0, 't'},
-            //{"flush-cache", optional_argument, 0, 'c'},
             {0, 0,                        0,                0}
     };
 
@@ -121,8 +121,7 @@ bool readHdfsZcr(hdfsFS fs, hdfsFile file, hdfsFileInfo *fileInfo) {
     rzOptions = hadoopRzOptionsAlloc();
     EXPECT_NONZERO(rzOptions, "hadoopRzOptionsAlloc")
 
-    // TODO Test
-    //hadoopRzOptionsSetSkipChecksum(rzOptions, true);
+    hadoopRzOptionsSetSkipChecksum(rzOptions, options.skip_checksums);
     hadoopRzOptionsSetByteBufferPool(rzOptions, ELASTIC_BYTE_BUFFER_POOL_CLASS);
 
     size_t total_read = 0, read = 0;
@@ -193,7 +192,7 @@ int main(int argc, char *argv[]) {
         // TODO Test
         hdfsBuilderConfSetStr(hdfsBuilder, "dfs.client.domain.socket.data.traffic", "true");
         hdfsBuilderConfSetStr(hdfsBuilder, "dfs.client.read.shortcircuit.streams.cache.size", "4000");
-        hdfsBuilderConfSetStr(hdfsBuilder, "dfs.client.read.shortcircuit.skip.checksum", "true");
+        hdfsBuilderConfSetStr(hdfsBuilder, "dfs.client.read.shortcircuit.skip.checksum", options.skip_checksums ? "true" : "false");
     }
 
     // Connect
