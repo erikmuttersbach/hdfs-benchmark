@@ -238,6 +238,7 @@ int main(int argc, char *argv[]) {
 
     // Connect
     hdfsFS fs = hdfsBuilderConnect(hdfsBuilder);
+	EXPECT_NONZERO(fs, "hdfsBuilderConnect")
 
     struct timespec start, end;
 
@@ -252,13 +253,15 @@ int main(int argc, char *argv[]) {
         hdfsFileInfo *fileInfo = hdfsGetPathInfo(fs, options.path);
         fileSize = fileInfo[0].mSize;
 
-        char ***hosts = hdfsGetHosts(fs, options.path, 0, fileInfo->mSize);
-        EXPECT_NONZERO(hosts, "hdfsGetHosts")
-        for(uint i=0; hosts[i]; i++) {
-            for(uint j=0; hosts[i][j]; j++) {
-                printf("[%02i][%02i] %s\n", i, j, hosts[i][j]);
-            }
-        }
+		if(options.verbose) {
+	        char ***hosts = hdfsGetHosts(fs, options.path, 0, fileInfo->mSize);
+    	    EXPECT_NONZERO(hosts, "hdfsGetHosts")
+        	
+			uint i=0;
+			for(i=0; hosts[i]; i++) {
+       	 	}
+			cout << "Reading " << i << " blocks" << endl;
+		}
 
         clock_gettime(CLOCK_MONOTONIC, &start);
 
