@@ -132,7 +132,9 @@ void useData(void *buffer, tSize len) {
     }
 }
 
+
 bool readHdfsZcr(hdfsFS fs, hdfsFile file, hdfsFileInfo *fileInfo) {
+#ifdef LIBHDFS_HDFS_H
     struct hadoopRzOptions *rzOptions;
     struct hadoopRzBuffer *rzBuffer;
 
@@ -177,7 +179,12 @@ bool readHdfsZcr(hdfsFS fs, hdfsFile file, hdfsFileInfo *fileInfo) {
         cout << "Performed ZCR" << endl;
     }
     return true;
+#else
+    cout << "ZCR not supported" << endl;
+    return false;
+#endif
 }
+
 
 bool readHdfsStandard(hdfsFS fs, hdfsFile file, hdfsFileInfo *fileInfo) {
     char *buffer = (char *) malloc(sizeof(char) * options.buffer_size);
@@ -260,6 +267,7 @@ int main(int argc, char *argv[]) {
         }
 
         // Get Statistics
+#ifdef LIBHDFS_HDFS_H
         if(options.verbose) {
             struct hdfsReadStatistics *stats;
             hdfsFileGetReadStatistics(file, &stats);
@@ -268,6 +276,7 @@ int main(int argc, char *argv[]) {
                    stats->totalZeroCopyBytesRead);
             hdfsFileFreeReadStatistics(stats);
         }
+#endif
 
         hdfsFreeFileInfo(fileInfo, 1);
         hdfsCloseFile(fs, file);
