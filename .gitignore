@@ -7,3 +7,7 @@ build/
 CMakeCache.txt
 CMakeFiles
 Makefile
+
+iotop.log
+out.log
+CLASSPATH
