@@ -240,11 +240,11 @@ int main(int argc, char *argv[]) {
     hdfsFS fs = hdfsBuilderConnect(hdfsBuilder);
 
     struct timespec start, end;
-    clock_gettime(CLOCK_MONOTONIC, &start);
+
 
     tOffset fileSize = 0;
 
-    // Read File
+    // Check if the file exists
     if (hdfsExists(fs, options.path) != 0) {
         printf("File %s does not exist\n", options.path);
 
@@ -252,6 +252,17 @@ int main(int argc, char *argv[]) {
         hdfsFileInfo *fileInfo = hdfsGetPathInfo(fs, options.path);
         fileSize = fileInfo[0].mSize;
 
+        char ***hosts = hdfsGetHosts(fs, options.path, 0, fileInfo->mSize);
+        EXPECT_NONZERO(hosts, "hdfsGetHosts")
+        for(uint i=0; hosts[i]; i++) {
+            for(uint j=0; hosts[i][j]; j++) {
+                printf("[%02i][%02i] %s\n", i, j, hosts[i][j]);
+            }
+        }
+
+        clock_gettime(CLOCK_MONOTONIC, &start);
+
+        // Open and read the file
         hdfsFile file = hdfsOpenFile(fs, options.path, O_RDONLY, options.buffer_size, 0, 0);
         EXPECT_NONZERO(file, "hdfsOpenFile")
 
