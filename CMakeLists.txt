@@ -13,11 +13,11 @@ set(SOURCE_FILES main.cpp)
 add_executable(hdfs_benchmark ${SOURCE_FILES})
 
 # PACKAGES
-find_package (JNI REQUIRED)
-if (JNI_FOUND)
-    link_directories(${JAVA_JVM_LIBRARY})
-    target_link_libraries(hdfs_benchmark ${JNI_LIBRARIES})
-endif (JNI_FOUND)
+#find_package (JNI REQUIRED)
+#if (JNI_FOUND)
+#    link_directories(${JAVA_JVM_LIBRARY})
+#    target_link_libraries(hdfs_benchmark ${JNI_LIBRARIES})
+#endif (JNI_FOUND)
 
 find_package (libhdfs)
 if (LIBHDFS_FOUND)
@@ -25,10 +25,10 @@ if (LIBHDFS_FOUND)
     target_link_libraries(hdfs_benchmark ${LIBHDFS_LIBRARY})
 endif (LIBHDFS_FOUND)
 
-find_package (libhadoop)
-if (LIBHADOOP_FOUND)
-    target_link_libraries(hdfs_benchmark ${LIBHADOOP_LIBRARY})
-endif (LIBHADOOP_FOUND)
+#find_package (libhadoop)
+#if (LIBHADOOP_FOUND)
+#    target_link_libraries(hdfs_benchmark ${LIBHADOOP_LIBRARY})
+#endif (LIBHADOOP_FOUND)
 
 # LINKER
 target_link_libraries(hdfs_benchmark uuid pthread)

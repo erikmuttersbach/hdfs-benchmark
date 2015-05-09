@@ -40,6 +40,7 @@ struct {
     size_t buffer_size = 4096;
     int verbose = false;
     int skip_checksums = false;
+    int sample = false;
     type_t type = type_t::undefined;
 } options;
 
@@ -50,7 +51,8 @@ void print_usage() {
                    "  -t, --type           One of standard, sc, zcr\n"
                    "  -n, --namenode       Namenode hostname, default: localhost\n"
                    "  -p, --namenode-port  Namenode port, default: 9000\n"
-                   "  -v, --verbose        Verbose output, e.g. statistics, formatted speed\n");
+                   "  -v, --verbose        Verbose output, e.g. statistics, formatted speed\n"
+                   "  -x, --sample         Sample the copy speed every 1s\n");
 }
 
 void parse_options(int argc, char *argv[]) {
@@ -64,7 +66,7 @@ void parse_options(int argc, char *argv[]) {
             {"namenode", optional_argument, 0,              'n'},
             {"namenode-port", optional_argument, 0,         'p'},
             {"verbose",      no_argument,       &options.verbose, 'v'},
-
+            {"sample",      no_argument,       &options.sample, 'x'},
             {"skip-checksums",     no_argument, &options.skip_checksums, 1},
 
             {0, 0,                        0,                0}
@@ -96,6 +98,9 @@ void parse_options(int argc, char *argv[]) {
                 exit(1);
             case 's':
                 options.socket = optarg;
+                break;
+            case 'x':
+                options.sample = true;
                 break;
             case 't':
                 if(strcmp(optarg, "standard") == 0) {
