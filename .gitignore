@@ -7,3 +7,6 @@ build/
 CMakeCache.txt
 CMakeFiles
 Makefile
+
+benchmark.rb
+perf.data

@@ -1,8 +1,10 @@
 #include <iostream>
 #include <getopt.h>
-#include <errno.h>
+
 #include <string.h>
 #include <hdfs.h>
+
+#include <cassert>
 
 using namespace std;
 
@@ -125,11 +127,13 @@ void parse_options(int argc, char *argv[]) {
     }
 }
 
-void useData(void *buffer, tSize len) {
-    volatile uint64_t sum = 0;
-    for (size_t i = 0; i < len; i++) {
-        sum += *((char *) buffer + i);
+inline void useData(void *buffer, tSize len) __attribute__((__always_inline__));
+inline void useData(void *buffer, tSize len) {
+    uint64_t sum  = 0;
+    for (size_t i = 0; i < len/sizeof(uint64_t); i++) {
+        sum += *(((uint64_t*) buffer) + i);
     }
+    assert(sum);
 }
 
 
@@ -259,6 +263,8 @@ int main(int argc, char *argv[]) {
         	
 			uint i=0;
 			for(i=0; hosts[i]; i++) {
+				for(uint j=0; hosts[i][j]; j++) 
+					cout << "Block["<< i << "][" << j << "]: " << hosts[i][j] << endl;
        	 	}
 			cout << "Reading " << i << " blocks" << endl;
 		}
