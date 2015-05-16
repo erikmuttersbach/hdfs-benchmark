@@ -2,11 +2,30 @@
 #include <getopt.h>
 
 #include <string.h>
-#include <hdfs.h>
+#include <hdfs/hdfs.h>
 
 #include <cassert>
 
 using namespace std;
+
+// On Mac OS X clock_gettime is not available
+#ifdef __MACH__
+#include <mach/mach_time.h>
+
+#define CLOCK_REALTIME 0
+#define CLOCK_MONOTONIC 0
+int clock_gettime(int clk_id, struct timespec *t){
+    mach_timebase_info_data_t timebase;
+    mach_timebase_info(&timebase);
+    uint64_t time;
+    time = mach_absolute_time();
+    double nseconds = ((double)time * (double)timebase.numer)/((double)timebase.denom);
+    double seconds = ((double)time * (double)timebase.numer)/((double)timebase.denom * 1e9);
+    t->tv_sec = seconds;
+    t->tv_nsec = nseconds;
+    return 0;
+}
+#endif
 
 #define EXPECT_NONZERO(r, func) if(r==NULL) { \
                                     fprintf(stderr, "%s failed: %s\n", func, strerror(errno)); \
@@ -257,6 +276,7 @@ int main(int argc, char *argv[]) {
         hdfsFileInfo *fileInfo = hdfsGetPathInfo(fs, options.path);
         fileSize = fileInfo[0].mSize;
 
+        #ifdef LIBHDFS_HDFS_H
 		if(options.verbose) {
 	        char ***hosts = hdfsGetHosts(fs, options.path, 0, fileInfo->mSize);
     	    EXPECT_NONZERO(hosts, "hdfsGetHosts")
@@ -268,6 +288,7 @@ int main(int argc, char *argv[]) {
        	 	}
 			cout << "Reading " << i << " blocks" << endl;
 		}
+		#endif
 
         clock_gettime(CLOCK_MONOTONIC, &start);
 
