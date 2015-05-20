@@ -117,9 +117,9 @@ void reader(hdfsFileInfo *fileInfo, string host, options_t options) {
             totalRead += read;
         } while (read > 0 && totalRead < fileInfo->mBlockSize);
 
-        auto d = chrono::duration_cast<chrono::milliseconds>(chrono::high_resolution_clock::now() - start);
+        auto seconds = ((double)(chrono::duration_cast<chrono::milliseconds>(chrono::high_resolution_clock::now() - start)).count())/1000.0;
 
-        cout << "Thread-" << host << " downloaded " << downloadBlockIdx << " (" << totalRead/(1024.0*1024.0) << "MB with in " << ((double)totalRead/(1024.0*1024.0))/((double)d.count())/1000.0 << "ms)"<< endl;
+        cout << "Thread-" << host << " downloaded " << downloadBlockIdx << " (" << totalRead/(1024.0*1024.0) << " MB with in " << ((double)totalRead/(1024.0*1024.0))/seconds << " MB/s)"<< endl;
 
         {
             unique_lock<mutex> lock(blocksMutex);
