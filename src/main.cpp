@@ -20,6 +20,18 @@
 
 using namespace std;
 
+timespec timespec_diff(timespec start, timespec end) {
+    timespec temp;
+    if ((end.tv_nsec - start.tv_nsec) < 0) {
+        temp.tv_sec = end.tv_sec - start.tv_sec - 1;
+        temp.tv_nsec = 1000000000 + end.tv_nsec - start.tv_nsec;
+    } else {
+        temp.tv_sec = end.tv_sec - start.tv_sec;
+        temp.tv_nsec = end.tv_nsec - start.tv_nsec;
+    }
+    return temp;
+}
+
 inline void useData(void *buffer, tSize len) __attribute__((__always_inline__));
 inline void useData(void *buffer, tSize len) {
     uint64_t sum  = 0;
@@ -90,7 +102,7 @@ void reader(hdfsFileInfo *fileInfo, string host, options_t options) {
         // Download the block `downloadBlockIdx`
         cout << "Thread-" << host << " downloading " << downloadBlockIdx << endl;
 
-        int r = hdfsSeek(fs, file, downloadBlockIdx);
+        int r = hdfsSeek(fs, file, fileInfo->mBlockSize*((uint64_t)downloadBlockIdx));
         EXPECT_NONNEGATIVE(r, "hdfsSeek")
 
         char *buffer = (char*)malloc(fileInfo->mBlockSize);
@@ -188,7 +200,11 @@ int main(int argc, char **argv) {
     }
 
     // 3) Start Execution
-    unordered_map<string, thread> threads;
+	// Start Time
+	struct timespec start, end;
+	clock_gettime(CLOCK_MONOTONIC, &start);    
+
+	unordered_map<string, thread> threads;
     for (auto &host : hosts) {
         threads[host] = thread(reader, fileInfo, host, options);
     }
@@ -196,6 +212,16 @@ int main(int argc, char **argv) {
     for (auto &host : hosts) {
         threads[host].join();
     }
+
+	clock_gettime(CLOCK_MONOTONIC, &end);
+    	struct timespec d = timespec_diff(start, end);
+    	double speed = (((double) fileInfo->mSize) / ((double) d.tv_sec + d.tv_nsec / 1000000000.0)) / (1024.0 * 1024.0);
+
+    	if(options.verbose) {
+        	printf("Read %f MB with %lfMiB/s\n", ((double) fileInfo->mSize) / (1024.0 * 1024.0), speed);
+    	} else {
+        	printf("%f\n", speed);
+    	}
 
     // Clean Up
     hdfsDisconnect(fs);
