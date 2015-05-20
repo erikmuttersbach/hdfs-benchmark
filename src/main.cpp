@@ -56,7 +56,7 @@ int main(int argc, char **argv) {
     for (uint block = 0; blockHosts[block]; block++) {
         //vector<string> blockHosts;
         for (uint j = 0; blockHosts[block][j]; j++) {
-            if(blocks.count(block) == 0) {
+            if (blocks.count(block) == 0) {
                 blocks[block] = vector<string>();
             }
             blocks[block].push_back(blockHosts[block][j]);
@@ -65,23 +65,25 @@ int main(int argc, char **argv) {
         }
     }
 
-    cout << "All Hosts: " << endl;
-    for(auto it=hosts.begin(); it != hosts.end(); it++) {
-        cout << "\t" << *it << endl;
-    }
+    if (options.verbose) {
+        cout << "All Hosts: " << endl;
+        for (auto it = hosts.begin(); it != hosts.end(); it++) {
+            cout << "\t" << *it << endl;
+        }
 
-    cout << "All Blocks: " << endl;
-    for(auto it=blocks.begin(); it != blocks.end(); it++) {
-        cout << "\tBlock " << it->first << ":" << endl;
-        for(auto it2 = it->second.begin(); it2 != it->second.end(); it2++) {
-            cout << "\t\t" << *it2 << endl;
+        cout << "All Blocks: " << endl;
+        for (auto it = blocks.begin(); it != blocks.end(); it++) {
+            cout << "\tBlock " << it->first << ":" << endl;
+            for (auto it2 = it->second.begin(); it2 != it->second.end(); it2++) {
+                cout << "\t\t" << *it2 << endl;
+            }
         }
     }
 
     // 3) Start Execution
+    
 
     // Clean Up
-
     hdfsDisconnect(fs);
     hdfsFreeBuilder(hdfsBuilder);
 
