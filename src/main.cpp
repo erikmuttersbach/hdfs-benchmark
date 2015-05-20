@@ -4,13 +4,95 @@
 #include <unordered_map>
 #include <vector>
 #include <set>
+#include <thread>
+#include <queue>
+#include <mutex>
+#include <algorithm>
+#include <cassert>
 
 #include <hdfs/hdfs.h>
 
+#include "PriorityQueue.h"
+#include "Block.h"
+#include "Compare.h"
 #include "options.h"
 #include "expect.h"
 
 using namespace std;
+
+inline void useData(void *buffer, tSize len) __attribute__((__always_inline__));
+inline void useData(void *buffer, tSize len) {
+    uint64_t sum  = 0;
+    for (size_t i = 0; i < len/sizeof(uint64_t); i++) {
+        sum += *(((uint64_t*) buffer) + i);
+    }
+    assert(sum);
+}
+
+
+std::mutex blocksMutex;
+unordered_map<uint32_t, set<string>> blocks;
+PriorityQueue<uint32_t> pendingBlocks;
+PriorityQueue<Block, vector<Block>, Compare> loadedBlocks;
+
+void reader(hdfsFS fs, hdfsFileInfo *fileInfo, string host, options_t options) {
+    cout << "Thread " << host << " starting" << endl;
+
+    hdfsFile file = hdfsOpenFile2(fs, host.c_str(), options.path, O_RDONLY, options.buffer_size, 0, 0);
+    EXPECT_NONZERO(file, "hdfsOpenFile")
+
+    while(true) {
+        //std::unique_lock<std::mutex> l(m);
+
+        uint32_t downloadBlockIdx = -1;
+        {
+            unique_lock<mutex> lock(blocksMutex);
+            uint count = 0;
+            for(auto& block : loadedBlocks) {
+                if(block.host.compare(host) == 0) {
+                    count++;
+                }
+            }
+
+            if(count < 3) {
+                for(auto it = pendingBlocks.begin(); it != pendingBlocks.end(); it++) {
+                    if(blocks[*it].count(host)) {
+                        downloadBlockIdx = *it;
+                        pendingBlocks.remove(it);
+                        break;
+                    }
+                }
+            }
+        }
+
+        if(downloadBlockIdx == -1) {
+            break;
+        }
+
+        // Download the block `downloadBlockIdx`
+        cout << "Thread-" << host << " downloading " << downloadBlockIdx << endl;
+
+        int r = hdfsSeek(fs, file, downloadBlockIdx);
+        EXPECT_NONNEGATIVE(r, "hdfsSeek")
+
+        char *buffer = (char*)malloc(fileInfo->mBlockSize);
+        tSize read = 0, totalRead = 0;
+        do {
+            read = hdfsRead(fs, file, buffer+totalRead, options.buffer_size);
+            EXPECT_NONNEGATIVE(read, "hdfsRead")
+
+            totalRead += read;
+        } while (read > 0 && totalRead < fileInfo->mBlockSize);
+
+        {
+            unique_lock<mutex> lock(blocksMutex);
+            loadedBlocks.push(Block(downloadBlockIdx, host, buffer));
+        }
+    }
+
+    hdfsCloseFile(fs, file);
+    cout << "Thread " << host << " finished" << endl;
+}
 
 int main(int argc, char **argv) {
     // Parse Options
@@ -23,6 +105,8 @@ int main(int argc, char **argv) {
         cout << "Checksums: " << (options.skip_checksums ? "false" : "true") << endl;
         cout << "Type:      " << options.type << endl;
     }
+
+
 
     // Create Connection
     struct hdfsBuilder *hdfsBuilder = hdfsNewBuilder();
@@ -54,14 +138,14 @@ int main(int argc, char **argv) {
     EXPECT_NONZERO(blockHosts, "hdfsGetHosts")
 
     set<string> hosts;
-    unordered_map<uint32_t, vector<string>> blocks;
     for (uint block = 0; blockHosts[block]; block++) {
-        //vector<string> blockHosts;
+        pendingBlocks.push(block);
+
         for (uint j = 0; blockHosts[block][j]; j++) {
             if (blocks.count(block) == 0) {
-                blocks[block] = vector<string>();
+                blocks[block] = set<string>();
             }
-            blocks[block].push_back(blockHosts[block][j]);
+            blocks[block].insert(blockHosts[block][j]);
 
             hosts.insert(blockHosts[block][j]);
         }
@@ -83,7 +167,14 @@ int main(int argc, char **argv) {
     }
 
     // 3) Start Execution
-    
+    unordered_map<string, thread> threads;
+    for (auto &host : hosts) {
+        threads[host] = thread(reader, fs, fileInfo, host, options);
+    }
+
+    for (auto &host : hosts) {
+        threads[host].join();
+    }
 
     // Clean Up
     hdfsDisconnect(fs);

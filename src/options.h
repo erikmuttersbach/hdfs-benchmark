@@ -14,7 +14,7 @@ typedef struct {
     int skip_checksums = false;
     int sample = false;
     type_t type = type_t::undefined;
-} options;
+} options_t;
 
 void print_usage() {
     printf("hdfs_benchmark -f FILE [-b BUFFER_SIZE] [-t TYPE] [-n NAMENODE] [-p NAMENODE_PORT]\n"
@@ -27,8 +27,8 @@ void print_usage() {
                    "  -x, --sample         Sample the copy speed every 1s\n");
 }
 
-options parse_options(int argc, char *argv[]) {
-    options options;
+options_t parse_options(int argc, char *argv[]) {
+    options_t options;
 
     static struct option options_config[] = {
             {"file",   required_argument, 0,                'f'},

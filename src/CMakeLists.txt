@@ -4,7 +4,7 @@ set(CMAKE_C_FLAGS_RELEASE "-O3 -march=native -msse -msse2")
 
 #set(CMAKE_BUILD_TYPE Release)
 
-set(SOURCE_FILES main.cpp)
+set(SOURCE_FILES main.cpp Block.cpp PriorityQueue.cpp Compare.cpp)
 add_executable(hdfs_benchmark ${SOURCE_FILES})
 
 find_package (libhdfs REQUIRED)
