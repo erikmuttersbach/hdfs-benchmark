@@ -7,3 +7,4 @@
                                     fprintf(stderr, "%s failed: %s\n", func, strerror(errno)); \
                                     exit(1); \
                                 }
+
