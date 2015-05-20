@@ -35,8 +35,26 @@ unordered_map<uint32_t, set<string>> blocks;
 PriorityQueue<uint32_t> pendingBlocks;
 PriorityQueue<Block, vector<Block>, Compare> loadedBlocks;
 
-void reader(hdfsFS fs, hdfsFileInfo *fileInfo, string host, options_t options) {
+void reader(hdfsFileInfo *fileInfo, string host, options_t options) {
     cout << "Thread " << host << " starting" << endl;
+
+    // Create Connection
+    // TODO bake into function
+    struct hdfsBuilder *hdfsBuilder = hdfsNewBuilder();
+    hdfsBuilderSetNameNode(hdfsBuilder, options.namenode);
+    hdfsBuilderSetNameNodePort(hdfsBuilder, options.namenode_port);
+    if (options.type == type_t::undefined || options.type == type_t::scr || options.type == type_t::zcr) {
+        hdfsBuilderConfSetStr(hdfsBuilder, "dfs.client.read.shortcircuit", "true");
+        hdfsBuilderConfSetStr(hdfsBuilder, "dfs.domain.socket.path", options.socket);
+        // TODO Test
+        //hdfsBuilderConfSetStr(hdfsBuilder, "dfs.client.domain.socket.data.traffic", "true");
+        //hdfsBuilderConfSetStr(hdfsBuilder, "dfs.client.read.shortcircuit.streams.cache.size", "4000");
+        hdfsBuilderConfSetStr(hdfsBuilder, "dfs.client.read.shortcircuit.skip.checksum",
+                              options.skip_checksums > 0 ? "true" : "false");
+    }
+
+    hdfsFS fs = hdfsBuilderConnect(hdfsBuilder);
+    EXPECT_NONZERO(fs, "hdfsBuilderConnect")
 
     hdfsFile file = hdfsOpenFile2(fs, host.c_str(), options.path, O_RDONLY, options.buffer_size, 0, 0);
     EXPECT_NONZERO(file, "hdfsOpenFile")
@@ -84,6 +102,8 @@ void reader(hdfsFS fs, hdfsFileInfo *fileInfo, string host, options_t options) {
             totalRead += read;
         } while (read > 0 && totalRead < fileInfo->mBlockSize);
 
+        cout << "Thread-" << host << " downloaded " << downloadBlockIdx << " (" << totalRead/(1024.0*1024.0) << "MB read)"<< endl;
+
         {
             unique_lock<mutex> lock(blocksMutex);
             loadedBlocks.push(Block(downloadBlockIdx, host, buffer));
@@ -109,6 +129,7 @@ int main(int argc, char **argv) {
 
 
     // Create Connection
+    // TODO bake into function
     struct hdfsBuilder *hdfsBuilder = hdfsNewBuilder();
     hdfsBuilderSetNameNode(hdfsBuilder, options.namenode);
     hdfsBuilderSetNameNodePort(hdfsBuilder, options.namenode_port);
@@ -169,7 +190,7 @@ int main(int argc, char **argv) {
     // 3) Start Execution
     unordered_map<string, thread> threads;
     for (auto &host : hosts) {
-        threads[host] = thread(reader, fs, fileInfo, host, options);
+        threads[host] = thread(reader, fileInfo, host, options);
     }
 
     for (auto &host : hosts) {
