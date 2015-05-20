@@ -54,23 +54,35 @@ int main(int argc, char **argv) {
     set<string> hosts;
     unordered_map<uint32_t, vector<string>> blocks;
     for (uint block = 0; blockHosts[block]; block++) {
-        vector<string> blockHosts;
+        //vector<string> blockHosts;
         for (uint j = 0; blockHosts[block][j]; j++) {
-            blockHosts.push_back(&blockHosts[block][j]);
-            hosts.insert(&blockHosts[block][j]);
+            if(blocks.count(block) == 0) {
+                blocks[block] = vector<string>();
+            }
+            blocks[block].push_back(blockHosts[block][j]);
+
+            hosts.insert(blockHosts[block][j]);
         }
-        blocks[block] = blockHosts;
     }
 
-    cout << "All Hosts" << endl;
+    cout << "All Hosts: " << endl;
     for(auto it=hosts.begin(); it != hosts.end(); it++) {
         cout << "\t" << *it << endl;
+    }
+
+    cout << "All Blocks: " << endl;
+    for(auto it=blocks.begin(); it != blocks.end(); it++) {
+        cout << "\tBlock " << it->first << ":" << endl;
+        for(auto it2 = it->second.begin(); it2 != it->second.end(); it2++) {
+            cout << "\t\t" << *it2 << endl;
+        }
     }
 
     // 3) Start Execution
 
     // Clean Up
 
+    hdfsDisconnect(fs);
     hdfsFreeBuilder(hdfsBuilder);
 
     return 0;
