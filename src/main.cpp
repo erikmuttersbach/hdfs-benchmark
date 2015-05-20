@@ -9,6 +9,7 @@
 #include <mutex>
 #include <algorithm>
 #include <cassert>
+#include <chrono>
 
 #include <hdfs/hdfs.h>
 
@@ -102,6 +103,10 @@ void reader(hdfsFileInfo *fileInfo, string host, options_t options) {
         // Download the block `downloadBlockIdx`
         cout << "Thread-" << host << " downloading " << downloadBlockIdx << endl;
 
+        auto start = chrono::high_resolution_clock::now();
+        //auto sec = chrono::duration_cast<chrono::seconds>(diff);
+        //cout << "this program runs:" << s.count() << " seconds" << endl;
+
         int r = hdfsSeek(fs, file, fileInfo->mBlockSize*((uint64_t)downloadBlockIdx));
         EXPECT_NONNEGATIVE(r, "hdfsSeek")
 
@@ -114,7 +119,9 @@ void reader(hdfsFileInfo *fileInfo, string host, options_t options) {
             totalRead += read;
         } while (read > 0 && totalRead < fileInfo->mBlockSize);
 
-        cout << "Thread-" << host << " downloaded " << downloadBlockIdx << " (" << totalRead/(1024.0*1024.0) << "MB read)"<< endl;
+        auto d = chrono::duration_cast<chrono::milliseconds>(chrono::high_resolution_clock::now() - start);
+
+        cout << "Thread-" << host << " downloaded " << downloadBlockIdx << " (" << totalRead/(1024.0*1024.0) << "MB read in " << d.count() << "ms)"<< endl;
 
         {
             unique_lock<mutex> lock(blocksMutex);
@@ -201,8 +208,6 @@ int main(int argc, char **argv) {
 
     // 3) Start Execution
 	// Start Time
-	struct timespec start, end;
-	clock_gettime(CLOCK_MONOTONIC, &start);    
 
 	unordered_map<string, thread> threads;
     for (auto &host : hosts) {
@@ -212,16 +217,6 @@ int main(int argc, char **argv) {
     for (auto &host : hosts) {
         threads[host].join();
     }
-
-	clock_gettime(CLOCK_MONOTONIC, &end);
-    	struct timespec d = timespec_diff(start, end);
-    	double speed = (((double) fileInfo->mSize) / ((double) d.tv_sec + d.tv_nsec / 1000000000.0)) / (1024.0 * 1024.0);
-
-    	if(options.verbose) {
-        	printf("Read %f MB with %lfMiB/s\n", ((double) fileInfo->mSize) / (1024.0 * 1024.0), speed);
-    	} else {
-        	printf("%f\n", speed);
-    	}
 
     // Clean Up
     hdfsDisconnect(fs);
