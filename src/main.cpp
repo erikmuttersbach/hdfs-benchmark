@@ -104,8 +104,6 @@ void reader(hdfsFileInfo *fileInfo, string host, options_t options) {
         cout << "Thread-" << host << " downloading " << downloadBlockIdx << endl;
 
         auto start = chrono::high_resolution_clock::now();
-        //auto sec = chrono::duration_cast<chrono::seconds>(diff);
-        //cout << "this program runs:" << s.count() << " seconds" << endl;
 
         int r = hdfsSeek(fs, file, fileInfo->mBlockSize*((uint64_t)downloadBlockIdx));
         EXPECT_NONNEGATIVE(r, "hdfsSeek")
@@ -121,7 +119,7 @@ void reader(hdfsFileInfo *fileInfo, string host, options_t options) {
 
         auto d = chrono::duration_cast<chrono::milliseconds>(chrono::high_resolution_clock::now() - start);
 
-        cout << "Thread-" << host << " downloaded " << downloadBlockIdx << " (" << totalRead/(1024.0*1024.0) << "MB read in " << d.count() << "ms)"<< endl;
+        cout << "Thread-" << host << " downloaded " << downloadBlockIdx << " (" << totalRead/(1024.0*1024.0) << "MB with in " << ((double)totalRead/(1024.0*1024.0))/((double)d.count())/1000.0 << "ms)"<< endl;
 
         {
             unique_lock<mutex> lock(blocksMutex);
