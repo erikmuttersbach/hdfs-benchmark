@@ -48,7 +48,7 @@ std::condition_variable cv;
 std::mutex cvMutex;
 std::mutex blocksMutex;
 unordered_map<uint32_t, set<string>> blocks;
-PriorityQueue<uint32_t> pendingBlocks;
+PriorityQueue<uint32_t, vector<uint32_t>, std::greater<uint32_t>> pendingBlocks;
 PriorityQueue<Block, vector<Block>, Compare> loadedBlocks;
 
 void reader(hdfsFileInfo *fileInfo, string host, options_t options) {
