@@ -31,8 +31,10 @@ public:
     }
 
     _Tp pop() {
-        push_heap(elements.begin(), elements.end(), _Compare());
-        return elements.pop_back();
+        pop_heap(elements.begin(), elements.end(), _Compare());
+        _Tp element = elements.back();
+        elements.pop_back();
+        return element;
     }
 
     typename vector<_Tp>::iterator begin() {

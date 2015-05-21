@@ -14,9 +14,10 @@ using namespace std;
  */
 class Block {
 public:
-    Block(uint32_t idx, string host, void *data);
+    Block(uint32_t idx, string host, void *data, size_t len);
 
     void *data;
+    size_t len;
     string host;
     uint32_t idx;
 };

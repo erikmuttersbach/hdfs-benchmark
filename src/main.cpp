@@ -43,6 +43,8 @@ inline void useData(void *buffer, tSize len) {
 }
 
 
+std::condition_variable cv;
+std::mutex cvMutex;
 std::mutex blocksMutex;
 unordered_map<uint32_t, set<string>> blocks;
 PriorityQueue<uint32_t> pendingBlocks;
@@ -119,11 +121,12 @@ void reader(hdfsFileInfo *fileInfo, string host, options_t options) {
 
         auto seconds = ((double)(chrono::duration_cast<chrono::milliseconds>(chrono::high_resolution_clock::now() - start)).count())/1000.0;
 
-        cout << "Thread-" << host << " downloaded " << downloadBlockIdx << " (" << totalRead/(1024.0*1024.0) << " MB with in " << ((double)totalRead/(1024.0*1024.0))/seconds << " MB/s)"<< endl;
+        cout << "Thread-" << host << " downloaded " << downloadBlockIdx << " (" << totalRead/(1024.0*1024.0) << " MB with " << ((double)totalRead/(1024.0*1024.0))/seconds << " MB/s)"<< endl;
 
         {
             unique_lock<mutex> lock(blocksMutex);
-            loadedBlocks.push(Block(downloadBlockIdx, host, buffer));
+            loadedBlocks.push(Block(downloadBlockIdx, host, buffer, totalRead));
+            cv.notify_one();
         }
     }
 
@@ -142,8 +145,6 @@ int main(int argc, char **argv) {
         cout << "Checksums: " << (options.skip_checksums ? "false" : "true") << endl;
         cout << "Type:      " << options.type << endl;
     }
-
-
 
     // Create Connection
     // TODO bake into function
@@ -207,7 +208,20 @@ int main(int argc, char **argv) {
     // 3) Start Execution
 	// Start Time
 
-	unordered_map<string, thread> threads;
+    std::thread consumer([&]() {
+        uint32_t lastBlock = -1;
+        while(true) {
+            std::unique_lock<std::mutex> lock(blocksMutex);
+            cv.wait(lock);
+
+            auto block = loadedBlocks.pop();
+            lastBlock = block.idx;
+
+            useData(block.data, block.len);
+        }
+    });
+
+    unordered_map<string, thread> threads;
     for (auto &host : hosts) {
         threads[host] = thread(reader, fileInfo, host, options);
     }
