@@ -1,6 +1,8 @@
 #include <string.h>
 
 #include <iostream>
+#include <string>
+#include <sstream>
 #include <unordered_map>
 #include <vector>
 #include <set>
@@ -22,18 +24,6 @@
 
 using namespace std;
 
-timespec timespec_diff(timespec start, timespec end) {
-    timespec temp;
-    if ((end.tv_nsec - start.tv_nsec) < 0) {
-        temp.tv_sec = end.tv_sec - start.tv_sec - 1;
-        temp.tv_nsec = 1000000000 + end.tv_nsec - start.tv_nsec;
-    } else {
-        temp.tv_sec = end.tv_sec - start.tv_sec;
-        temp.tv_nsec = end.tv_nsec - start.tv_nsec;
-    }
-    return temp;
-}
-
 inline void useData(void *buffer, tSize len) __attribute__((__always_inline__));
 inline void useData(void *buffer, tSize len) {
     uint64_t sum  = 0;
@@ -43,13 +33,21 @@ inline void useData(void *buffer, tSize len) {
     assert(sum);
 }
 
-
 std::condition_variable cv;
 std::mutex cvMutex;
 std::mutex blocksMutex;
 unordered_map<uint32_t, set<string>> blocks;
 PriorityQueue<uint32_t, vector<uint32_t>, std::greater<uint32_t>> pendingBlocks;
 PriorityQueue<Block, vector<Block>, Compare> loadedBlocks;
+
+void _dumpLoadedBlocks() {
+    unique_lock<mutex> lock(blocksMutex);
+    stringstream ss;
+    for(auto& block : loadedBlocks) {
+        ss << block.idx << " " << endl;
+    }
+    cout << ss.str() << endl;
+}
 
 void reader(hdfsFileInfo *fileInfo, string host, options_t options) {
     cout << "Thread " << host << " starting" << endl;
@@ -127,6 +125,7 @@ void reader(hdfsFileInfo *fileInfo, string host, options_t options) {
         {
             unique_lock<mutex> lock(blocksMutex);
             loadedBlocks.push(Block(downloadBlockIdx, host, buffer, totalRead));
+            _dumpLoadedBlocks();
             cv.notify_one();
         }
     }
