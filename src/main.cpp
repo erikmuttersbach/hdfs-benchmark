@@ -215,6 +215,7 @@ int main(int argc, char **argv) {
             std::unique_lock<std::mutex> lock(blocksMutex);
             cv.wait(lock);
 
+			cout << "Peek: " << loadedBlocks.peek().idx << endl;
             if(loadedBlocks.peek().idx == lastBlock+1) {
                 auto block = loadedBlocks.pop();
                 lastBlock = block.idx;
