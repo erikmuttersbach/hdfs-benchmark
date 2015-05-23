@@ -218,7 +218,12 @@ int main(int argc, char **argv) {
             auto block = loadedBlocks.pop();
             lastBlock = block.idx;
 
+            cout << "Using Data " << block.idx << endl;
             useData(block.data, block.len);
+
+            if(block.idx+1 == blocks.size()) {
+                break;
+            }
         }
     });
 
