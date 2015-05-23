@@ -215,15 +215,18 @@ int main(int argc, char **argv) {
             std::unique_lock<std::mutex> lock(blocksMutex);
             cv.wait(lock);
 
-            auto block = loadedBlocks.pop();
-            lastBlock = block.idx;
+            if(loadedBlocks.peek().idx == lastBlock+1) {
+                auto block = loadedBlocks.pop();
+                lastBlock = block.idx;
 
-            cout << "Using Data " << block.idx << endl;
-            useData(block.data, block.len);
+                cout << "Using Data " << block.idx << endl;
+                useData(block.data, block.len);
 
-            if(block.idx+1 == blocks.size()) {
-                break;
+                if(block.idx+1 == blocks.size()) {
+                    break;
+                }
             }
+
         }
     });
 

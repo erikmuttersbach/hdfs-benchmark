@@ -37,6 +37,10 @@ public:
         return element;
     }
 
+    _Tp peek() {
+        return elements.back();
+    }
+
     typename vector<_Tp>::iterator begin() {
         return elements.begin();
     }
