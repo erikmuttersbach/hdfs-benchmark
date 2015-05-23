@@ -231,6 +231,9 @@ int main(int argc, char **argv) {
         threads[host].join();
     }
 
+
+    consumer.join();
+
     // Clean Up
     hdfsDisconnect(fs);
     hdfsFreeBuilder(hdfsBuilder);
