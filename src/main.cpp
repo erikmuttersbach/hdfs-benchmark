@@ -1,6 +1,4 @@
 #include <string.h>
-#include <pthread.h>
-
 #include <iostream>
 #include <string>
 #include <sstream>
@@ -41,19 +39,8 @@ unordered_map<uint32_t, set<string>> blocks;
 PriorityQueue<uint32_t, vector<uint32_t>, std::greater<uint32_t>> pendingBlocks;
 PriorityQueue<Block, vector<Block>, Compare> loadedBlocks;
 
-void _dumpLoadedBlocks() {
-    //unique_lock<mutex> lock(blocksMutex);
-    stringstream ss;
-    for(auto& block : loadedBlocks) {
-        ss << block.idx << " " << endl;
-    }
-    cout << ss.str() << endl;
-}
-
 void reader(hdfsFileInfo *fileInfo, string host, options_t options) {
     cout << "Thread " << host << " starting" << endl;
-
-    pthread_setname_np((string("Thread-")+host).c_str());
 
     // Create Connection
     // TODO bake into function
@@ -97,11 +84,10 @@ void reader(hdfsFileInfo *fileInfo, string host, options_t options) {
                         break;
                     }
                 }
+				if(downloadBlockIdx == -1) {
+                	break;
+            	}
             }
-        }
-
-        if(downloadBlockIdx == -1) {
-            break;
         }
 
         // Download the block `downloadBlockIdx`
@@ -225,7 +211,7 @@ int main(int argc, char **argv) {
                 auto block = loadedBlocks.pop();
                 lastBlock = block.idx;
 
-                //cout << "Using Data " << block.idx << endl;
+                cout << "Using Data " << block.idx << endl;
                 useData(block.data, block.len);
 
                 if(block.idx+1 == blocks.size()) {
