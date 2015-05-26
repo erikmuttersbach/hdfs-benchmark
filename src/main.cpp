@@ -1,4 +1,5 @@
 #include <string.h>
+#include <pthread.h>
 
 #include <iostream>
 #include <string>
@@ -51,6 +52,8 @@ void _dumpLoadedBlocks() {
 
 void reader(hdfsFileInfo *fileInfo, string host, options_t options) {
     cout << "Thread " << host << " starting" << endl;
+
+    pthread_setname_np((string("Thread-")+host).c_str());
 
     // Create Connection
     // TODO bake into function
@@ -119,7 +122,6 @@ void reader(hdfsFileInfo *fileInfo, string host, options_t options) {
         } while (read > 0 && totalRead < fileInfo->mBlockSize);
 
         auto seconds = ((double)(chrono::duration_cast<chrono::milliseconds>(chrono::high_resolution_clock::now() - start)).count())/1000.0;
-
         cout << "Thread-" << host << " downloaded " << downloadBlockIdx << " (" << totalRead/(1024.0*1024.0) << " MB with " << ((double)totalRead/(1024.0*1024.0))/seconds << " MB/s)"<< endl;
 
         {
@@ -246,6 +248,7 @@ int main(int argc, char **argv) {
     // Clean Up
     hdfsDisconnect(fs);
     hdfsFreeBuilder(hdfsBuilder);
+    hdfsFreeFileInfo(fileInfo, 1);
 
     return 0;
 }
