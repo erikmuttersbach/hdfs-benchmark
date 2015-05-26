@@ -38,7 +38,8 @@ public:
     }
 
     _Tp peek() {
-        return elements.back();
+        make_heap(elements.begin(), elements.end(), _Compare());
+        return elements.front();
     }
 
     typename vector<_Tp>::iterator begin() {
