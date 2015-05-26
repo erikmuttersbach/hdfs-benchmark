@@ -170,6 +170,8 @@ int main(int argc, char **argv) {
         exit(1);
     }
 
+	auto start = chrono::high_resolution_clock::now();
+
     // Retrieve File Information and build queue and threads
     hdfsFileInfo *fileInfo = hdfsGetPathInfo(fs, options.path);
 
@@ -216,12 +218,12 @@ int main(int argc, char **argv) {
                 cv.wait(lock);
             }
 
-			cout << "Peek: " << loadedBlocks.peek().idx << endl;
+			//cout << "Peek: " << loadedBlocks.peek().idx << endl;
             if(loadedBlocks.peek().idx == lastBlock+1) {
                 auto block = loadedBlocks.pop();
                 lastBlock = block.idx;
 
-                cout << "Using Data " << block.idx << endl;
+                //cout << "Using Data " << block.idx << endl;
                 useData(block.data, block.len);
 
                 if(block.idx+1 == blocks.size()) {
@@ -242,6 +244,9 @@ int main(int argc, char **argv) {
     }
 
     consumer.join();
+
+	auto seconds = ((double)(chrono::duration_cast<chrono::milliseconds>(chrono::high_resolution_clock::now() - start)).count())/1000.0;
+        cout << "Downloaded " << fileInfo->mSize/(1024.0*1024.0) << " MB with " << ((double)fileInfo->mSize/(1024.0*1024.0))/seconds << " MB/s)"<< endl;
 
     // Clean Up
     hdfsDisconnect(fs);
