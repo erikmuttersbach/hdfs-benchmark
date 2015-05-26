@@ -212,7 +212,9 @@ int main(int argc, char **argv) {
         uint32_t lastBlock = -1;
         while(true) {
             std::unique_lock<std::mutex> lock(blocksMutex);
-            cv.wait(lock);
+            if(loadedBlocks.size() == 0) {
+                cv.wait(lock);
+            }
 
 			cout << "Peek: " << loadedBlocks.peek().idx << endl;
             if(loadedBlocks.peek().idx == lastBlock+1) {

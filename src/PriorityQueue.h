@@ -50,6 +50,10 @@ public:
         return elements.end();
     }
 
+    unsigned long size() {
+        return elements.size();
+    }
+
 private:
     vector<_Tp> elements;
 };
