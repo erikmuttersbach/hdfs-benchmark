@@ -41,7 +41,7 @@ PriorityQueue<uint32_t, vector<uint32_t>, std::greater<uint32_t>> pendingBlocks;
 PriorityQueue<Block, vector<Block>, Compare> loadedBlocks;
 
 void _dumpLoadedBlocks() {
-    unique_lock<mutex> lock(blocksMutex);
+    //unique_lock<mutex> lock(blocksMutex);
     stringstream ss;
     for(auto& block : loadedBlocks) {
         ss << block.idx << " " << endl;
@@ -125,7 +125,7 @@ void reader(hdfsFileInfo *fileInfo, string host, options_t options) {
         {
             unique_lock<mutex> lock(blocksMutex);
             loadedBlocks.push(Block(downloadBlockIdx, host, buffer, totalRead));
-            _dumpLoadedBlocks();
+            //_dumpLoadedBlocks();
             cv.notify_one();
         }
     }
