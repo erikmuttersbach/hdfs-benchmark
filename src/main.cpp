@@ -69,6 +69,7 @@ void reader(hdfsFileInfo *fileInfo, string host, options_t options) {
         uint32_t downloadBlockIdx = -1;
         {
             unique_lock<mutex> lock(blocksMutex);
+
             uint count = 0;
             for(auto& block : loadedBlocks) {
                 if(block.host.compare(host) == 0) {
@@ -76,18 +77,26 @@ void reader(hdfsFileInfo *fileInfo, string host, options_t options) {
                 }
             }
 
-            if(count < 3) {
-                for(auto it = pendingBlocks.begin(); it != pendingBlocks.end(); it++) {
-                    if(blocks[*it].count(host)) {
-                        downloadBlockIdx = *it;
-                        pendingBlocks.remove(it);
-                        break;
-                    }
+            for(auto it = pendingBlocks.begin(); it != pendingBlocks.end(); it++) {
+                if(blocks[*it].count(host)) {
+                    downloadBlockIdx = *it;
+                    pendingBlocks.remove(it);
+                    break;
                 }
-				if(downloadBlockIdx == -1) {
-                	break;
-            	}
             }
+
+            /*if(count < 3 && downloadBlockIdx >= 0) {
+                // continue
+            } else if(count < 3 && downloadBlockIdx >= 0) {*/
+
+            if(downloadBlockIdx == -1) {
+                break;
+            } else {
+                if(count >= 3) {
+                    continue;
+                }
+            }
+
         }
 
         // Download the block `downloadBlockIdx`
