@@ -77,6 +77,10 @@ void reader(hdfsFileInfo *fileInfo, string host, options_t options) {
                 }
             }
 
+            if(count >= 3) {
+                continue;
+            }
+
             for(auto it = pendingBlocks.begin(); it != pendingBlocks.end(); it++) {
                 if(blocks[*it].count(host) > 0) {
                     downloadBlockIdx = *it;
@@ -88,10 +92,6 @@ void reader(hdfsFileInfo *fileInfo, string host, options_t options) {
             if(downloadBlockIdx == -1) {
                 cout << "Thread-" << host << " did not find job " << pendingBlocks.size() << endl;
                 break;
-            } else {
-                if(count >= 3) {
-                    continue;
-                }
             }
 
         }
