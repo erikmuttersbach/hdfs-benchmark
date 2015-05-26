@@ -78,18 +78,15 @@ void reader(hdfsFileInfo *fileInfo, string host, options_t options) {
             }
 
             for(auto it = pendingBlocks.begin(); it != pendingBlocks.end(); it++) {
-                if(blocks[*it].count(host)) {
+                if(blocks[*it].count(host) > 0) {
                     downloadBlockIdx = *it;
                     pendingBlocks.remove(it);
                     break;
                 }
             }
 
-            /*if(count < 3 && downloadBlockIdx >= 0) {
-                // continue
-            } else if(count < 3 && downloadBlockIdx >= 0) {*/
-
             if(downloadBlockIdx == -1) {
+                cout << "Thread-" << host << " did not find job " << pendingBlocks.size() << endl;
                 break;
             } else {
                 if(count >= 3) {
