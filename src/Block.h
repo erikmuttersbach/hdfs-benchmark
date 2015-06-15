@@ -5,6 +5,7 @@
 #ifndef HDFS_BENCHMARK_BLOCK_H
 #define HDFS_BENCHMARK_BLOCK_H
 
+#include <set>
 #include <string>
 
 using namespace std;
@@ -14,13 +15,14 @@ using namespace std;
  */
 class Block {
 public:
-    Block(uint32_t idx);
+    Block(uint32_t idx, set<string> hosts);
     Block(uint32_t idx, string host, void *data, size_t len);
 
+    set<string> hosts;
+    uint32_t idx;
     void *data;
     size_t len;
     string host;
-    uint32_t idx;
 };
 
 

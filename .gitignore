@@ -4,6 +4,7 @@
 cmake_install.cmake
 clion1
 build/
+src/queries_original
 CMakeCache.txt
 CMakeFiles
 Makefile

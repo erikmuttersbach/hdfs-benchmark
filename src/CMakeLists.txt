@@ -4,14 +4,20 @@ set(CMAKE_C_FLAGS_RELEASE "-O3 -march=native -msse -msse2")
 
 #set(CMAKE_BUILD_TYPE Release)
 
-set(SOURCE_FILES main.cpp Block.cpp PriorityQueue.cpp Compare.cpp)
+set(SOURCE_FILES main.cpp Block.cpp PriorityQueue.cpp Compare.cpp HdfsReader.cpp)
 add_executable(hdfs_benchmark ${SOURCE_FILES})
+
+add_executable(q1 q1.cpp HdfsReader.cpp Compare.cpp Block.cpp)
 
 find_package (libhdfs REQUIRED)
 if (LIBHDFS_FOUND)
     include_directories(${LIBHDFS_INCLUDE_DIR})
     target_link_libraries(hdfs_benchmark ${LIBHDFS_LIBRARY})
+    target_link_libraries(q1 ${LIBHDFS_LIBRARY})
 endif (LIBHDFS_FOUND)
 
 # LINKER
 target_link_libraries(hdfs_benchmark uuid pthread)
+
+
+####
