@@ -10,9 +10,11 @@
 #include <set>
 #include <thread>
 #include <mutex>
+#include <condition_variable>
 #include <iostream>
 #include <unordered_map>
 
+#include <string.h>
 #include <hdfs/hdfs.h>
 
 #include "Compare.h"
@@ -138,11 +140,13 @@ private:
         hdfsBuilderSetNameNode(hdfsBuilder, this->namenode.c_str());
         hdfsBuilderSetNameNodePort(hdfsBuilder, this->namenodePort);
 
-        hdfsBuilderConfSetStr(hdfsBuilder, "dfs.client.read.shortcircuit", "true");
-        hdfsBuilderConfSetStr(hdfsBuilder, "dfs.client.read.shortcircuit.skip.checksum", this->skipChecksums ? "true" : "false");
         if(!this->socket.empty()) {
+			hdfsBuilderConfSetStr(hdfsBuilder, "dfs.client.read.shortcircuit", "true");
+        	hdfsBuilderConfSetStr(hdfsBuilder, "dfs.client.read.shortcircuit.skip.checksum", this->skipChecksums ? "true" : "false");
             hdfsBuilderConfSetStr(hdfsBuilder, "dfs.domain.socket.path", this->socket.c_str());
-        }
+        } else {
+			hdfsBuilderConfSetStr(hdfsBuilder, "dfs.client.read.shortcircuit", "false");
+		}
 
         hdfsFS fs = hdfsBuilderConnect(hdfsBuilder);
         EXPECT_NONZERO_EXC(fs, "hdfsBuilderConnect")

@@ -18,6 +18,6 @@ endif (LIBHDFS_FOUND)
 
 # LINKER
 target_link_libraries(hdfs_benchmark uuid pthread)
-
+target_link_libraries(q1 uuid pthread)
 
 ####
