@@ -8,6 +8,7 @@
 #include <vector>
 #include <functional>
 #include <type_traits>
+#include <typeinfo>
 
 #include <parquet/parquet.h>
 
@@ -46,20 +47,28 @@ public:
 
             int repetitionLevel = 0, defintionLevel = 0;
             while (reader.HasNext()) {
-                if (std::is_same<T, string>::value) {
+                /*if (std::is_same<T, string>::value) {
                     auto byteArray = reader.GetByteArray(&repetitionLevel, &defintionLevel);
-                    data.push_back(func(string((char*)byteArray.ptr, byteArray.len)));
+                    //data.push_back(func(string((char*)byteArray.ptr, byteArray.len)));
+                } else if (std::is_same<T, int32_t >::value) {
+                    int32_t val = reader.GetInt32(&repetitionLevel, &defintionLevel);
+                    //data.push_back(func(val));
                 } else {
                     throw runtime_error("type for columns is not supported");
-                }
-
-
-
+                }*/
+                auto value = this->readValue<T>(reader, &repetitionLevel, &defintionLevel);
+                data.push_back(func(value));
             }
         }
 
         return data;
     }
+
+    // explicit_specialization.cpp
+    template<typename T>
+    T readValue(ColumnReader &reader, int *repetitionLevel, int *defintionLevel) {
+        throw runtime_error(string("Type ")+typeid(T).name()+" is not supported");
+    };
 
     FileMetaData getFileMetaData() {
         return this->fileMetaData;
@@ -67,7 +76,7 @@ public:
 
     void printInfo() {
         cout << "Schema: " << endl;
-        int k=0;
+        int k=-1;
         for(auto &i : this->fileMetaData.schema) {
             cout << k++ << ": " << i.name << " (";
             switch(i.type) {
@@ -122,6 +131,7 @@ private:
 
     FileMetaData fileMetaData;
 };
+
 
 
 #endif //HDFS_BENCHMARK_PARQUETREADER_H
