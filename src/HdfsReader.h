@@ -47,11 +47,16 @@ public:
         EXPECT_NONZERO_EXC(this->fileInfo, "hdfsGetPathInfo")
     }
 
+    /**
+     * Starts reading the whole file
+     */
     template<typename Func>
     void read(Func func) {
         char ***blocksHosts = hdfsGetHosts(fs, path.c_str(), 0, fileInfo->mSize);
         EXPECT_NONZERO_EXC(blockHosts, "hdfsGetHosts")
 
+        // Determine the set of hosts and the hosts of all blocks
+        // to build up `pendingBlocks`
         set<string> hosts;
         for (size_t block = 0; blocksHosts[block]; block++) {
             set<string> blockHosts;
@@ -63,6 +68,10 @@ public:
             pendingBlocks.push(Block(block, blockHosts));
         }
         size_t blockCount = pendingBlocks.size();
+
+        // Allocate memory for the whole file
+        this->buffer = static_cast<char*>(malloc(this->fileInfo->mSize));
+        EXPECT_NONZERO_EXC(this->buffer, "malloc")
 
         /*if (options.verbose) {
             cout << "All Hosts: " << endl;
@@ -94,7 +103,9 @@ public:
                     lastBlock = block.idx;
 
                     //this->blocks[block.idx] = block;
-                    func(block);
+                    if(func) {
+                        func(block);
+                    }
 
                     if(block.idx+1 == blockCount) {
                         break;
@@ -127,6 +138,10 @@ public:
 
     tOffset getBlockSize() {
         return this->fileInfo->mBlockSize;
+    }
+
+    void *getBuffer() {
+        return this->buffer;
     }
 
     void setSocket(string socket) {
@@ -209,13 +224,13 @@ private:
 
             auto start = chrono::high_resolution_clock::now();
 
-            int r = hdfsSeek(fs, file, fileInfo->mBlockSize*((uint64_t)downloadBlockIdx));
+            tOffset offset = fileInfo->mBlockSize*((uint64_t)downloadBlockIdx);
+            int r = hdfsSeek(fs, file, offset);
             EXPECT_NONNEGATIVE(r, "hdfsSeek")
 
-            char *buffer = (char*)malloc(fileInfo->mBlockSize);
             tSize read = 0, totalRead = 0;
             do {
-                read = hdfsRead(fs, file, buffer+totalRead, this->bufferSize);
+                read = hdfsRead(fs, file, this->buffer+offset+totalRead, this->fileInfo->mBlockSize);
                 EXPECT_NONNEGATIVE(read, "hdfsRead")
 
                 totalRead += read;
@@ -250,6 +265,9 @@ private:
 
     mutex blocksMutex;
     condition_variable cv;
+
+    // Buffer for the whole read file
+    char *buffer;
 
     // Blocks to be downloaded
     PriorityQueue<Block, vector<Block>, Compare> pendingBlocks;
