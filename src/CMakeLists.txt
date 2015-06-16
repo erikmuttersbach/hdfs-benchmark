@@ -10,13 +10,12 @@ add_executable(hdfs_benchmark main.cpp ${SOURCE_FILES})
 add_executable(q1 q1.cpp ${SOURCE_FILES})
 
 find_package (libhdfs REQUIRED)
-if (LIBHDFS_FOUND)
-    include_directories(${LIBHDFS_INCLUDE_DIR})
-    target_link_libraries(hdfs_benchmark ${LIBHDFS_LIBRARY})
-    target_link_libraries(q1 ${LIBHDFS_LIBRARY})
-endif (LIBHDFS_FOUND)
+include_directories(${LIBHDFS_INCLUDE_DIR})
+target_link_libraries(hdfs_benchmark ${LIBHDFS_LIBRARY})
+target_link_libraries(q1 ${LIBHDFS_LIBRARY})
 
 find_package(parquet REQUIRED)
+include_directories(${PARQUET_INCLUDE_DIRS})
 
 # LINKER
 target_link_libraries(hdfs_benchmark uuid pthread)

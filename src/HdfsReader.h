@@ -39,15 +39,16 @@ public:
         }
     }
 
-    template<typename Func>
-    void read(Func func) {
-        // Connect
+    void connect() {
         this->hdfsBuilder = hdfsNewBuilder();
         this->fs = connect(this->hdfsBuilder);
 
-        // Retrieve File Information and build queue and threads
-        fileInfo = hdfsGetPathInfo(fs, path.c_str());
+        this->fileInfo = hdfsGetPathInfo(fs, path.c_str());
+        EXPECT_NONZERO_EXC(this->fileInfo, "hdfsGetPathInfo")
+    }
 
+    template<typename Func>
+    void read(Func func) {
         char ***blocksHosts = hdfsGetHosts(fs, path.c_str(), 0, fileInfo->mSize);
         EXPECT_NONZERO_EXC(blockHosts, "hdfsGetHosts")
 
@@ -92,6 +93,7 @@ public:
                     auto block = loadedBlocks.pop();
                     lastBlock = block.idx;
 
+                    //this->blocks[block.idx] = block;
                     func(block);
 
                     if(block.idx+1 == blockCount) {
@@ -117,6 +119,14 @@ public:
 
         //auto seconds = ((double)(chrono::duration_cast<chrono::milliseconds>(chrono::high_resolution_clock::now() - start)).count())/1000.0;
         //cout << "Downloaded " << fileInfo->mSize/(1024.0*1024.0) << " MB with " << ((double)fileInfo->mSize/(1024.0*1024.0))/seconds << " MB/s)"<< endl;
+    }
+
+    tOffset getFileSize() {
+        return this->fileInfo->mSize;
+    }
+
+    tOffset getBlockSize() {
+        return this->fileInfo->mBlockSize;
     }
 
     void setSocket(string socket) {
@@ -188,7 +198,7 @@ private:
                 }
 
                 if(downloadBlockIdx == -1) {
-                    cout << "Thread-" << host << " did not find job " << pendingBlocks.size() << endl;
+                    cout << "Thread-" << host << " did not find job (" << pendingBlocks.size() << " pending)" << endl;
                     break;
                 }
 
@@ -240,8 +250,15 @@ private:
 
     mutex blocksMutex;
     condition_variable cv;
+
+    // Blocks to be downloaded
     PriorityQueue<Block, vector<Block>, Compare> pendingBlocks;
+
+    // Blocks to be processed
     PriorityQueue<Block, vector<Block>, Compare> loadedBlocks;
+
+    // Ordered list of all blocks downloaded
+    vector<Block> blocks;
 };
 
 
