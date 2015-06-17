@@ -26,7 +26,7 @@ using namespace std;
 
 class HdfsReader {
 public:
-    HdfsReader(string path, string namenode) : path(path), namenode(namenode) {
+    HdfsReader(string namenode) : namenode(namenode) {
 
     }
 
@@ -34,24 +34,44 @@ public:
         if(hdfsBuilder) {
             hdfsFreeBuilder(hdfsBuilder);
         }
-        if(this->fileInfo) {
-            hdfsFreeFileInfo(this->fileInfo, 1);
-        }
+
+        // TODO Free ...
     }
 
     void connect() {
         this->hdfsBuilder = hdfsNewBuilder();
         this->fs = connect(this->hdfsBuilder);
+    }
 
-        this->fileInfo = hdfsGetPathInfo(fs, path.c_str());
+    vector<hdfsFileInfo> listDirectory(string path) {
+        int entries;
+        hdfsFileInfo *files = hdfsListDirectory(this->fs, path.c_str(), &entries);
+        EXPECT_NONZERO_EXC(files, "hdfsListDirectory")
+
+        vector<hdfsFileInfo> filesVector;
+        for(int i=0; i<entries; i++) {
+            filesVector.push_back(files[i]);
+        }
+
+        return filesVector;
+    }
+
+    bool isDirectory(string path) {
+        hdfsFileInfo *fileInfo = hdfsGetPathInfo(fs, path.c_str());
         EXPECT_NONZERO_EXC(this->fileInfo, "hdfsGetPathInfo")
+
+        return fileInfo->mKind == tObjectKind::kObjectKindDirectory;
     }
 
     /**
      * Starts reading the whole file
      */
     template<typename Func>
-    void read(Func func) {
+    void read(string path, Func func) {
+        this->path = path;
+        this->fileInfo = hdfsGetPathInfo(fs, path.c_str());
+        EXPECT_NONZERO_EXC(this->fileInfo, "hdfsGetPathInfo")
+
         char ***blocksHosts = hdfsGetHosts(fs, path.c_str(), 0, fileInfo->mSize);
         EXPECT_NONZERO_EXC(blockHosts, "hdfsGetHosts")
 
@@ -130,6 +150,8 @@ public:
 
         //auto seconds = ((double)(chrono::duration_cast<chrono::milliseconds>(chrono::high_resolution_clock::now() - start)).count())/1000.0;
         //cout << "Downloaded " << fileInfo->mSize/(1024.0*1024.0) << " MB with " << ((double)fileInfo->mSize/(1024.0*1024.0))/seconds << " MB/s)"<< endl;
+
+        //TODO free
     }
 
     tOffset getFileSize() {

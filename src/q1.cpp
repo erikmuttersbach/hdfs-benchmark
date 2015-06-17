@@ -5,9 +5,11 @@
 #include <parquet/parquet.h>
 #include <vector>
 #include <iomanip>
+#include <hdfs/hdfs.h>
 
 #include "HdfsReader.h"
 #include "ParquetFile.h"
+#include "Query.h"
 
 static void print(const char* header,double* values)
 {
@@ -71,54 +73,13 @@ static void aggregate(const vector<char>& returnflag,const vector<char>& linesta
     }
 }
 
-int main(int argc, char **argv) {
-    if(argc != 3) {
-        cout << "Usage: " << argv[0] << " FILE NAMENODE" << endl;
-        exit(1);
+class Q1 : public Query {
+public:
+    Q1(int argc, char **argv) : Query(argc, argv) {
     }
 
-    // A
-    /*
-    HdfsReader reader(argv[1], argv[2]);
-    reader.connect();
-    reader.read(std::function<void(Block)>());
-
-    ParquetFile parquetFile(static_cast<uint8_t*>(reader.getBuffer()), reader.getFileSize());
-    parquetFile.printInfo();
-
-    // Read Columns
-    auto returnflag = parquetFile.readColumn<string, char>(8, [](string v){return v.data()[0];});
-    auto linestatus = parquetFile.readColumn<string, char>(9, [](string v){return v.data()[0];});
-    auto quantity = parquetFile.readColumn<double>(4);
-    auto extendedprice = parquetFile.readColumn<double>(5);
-    auto discount = parquetFile.readColumn<double>(6);
-    auto tax = parquetFile.readColumn<double>(7);
-    auto date = parquetFile.readColumn<string, unsigned>(10, [](string v){
-        int a=0,b=0,c=0;
-        sscanf(v.data(),"%d-%d-%d",&a,&b,&c);
-        return (a*10000)+(b*100)+c;
-    });*/
-
-    // B
-    vector<string> paths = {
-            "/tpch/1_parquet/lineitem/6e498418984728bf-4a439c45d1415caf_1214301924_data.0.parq",
-            "/tpch/1_parquet/lineitem/6e498418984728bf-4a439c45d1415cb0_1013092888_data.0.parq",
-            "/tpch/1_parquet/lineitem/6e498418984728bf-4a439c45d1415cb1_1013092888_data.0.parq",
-            "/tpch/1_parquet/lineitem/6e498418984728bf-4a439c45d1415cb2_644054718_data.0.parq",
-            "/tpch/1_parquet/lineitem/6e498418984728bf-4a439c45d1415cb3_644054718_data.0.parq"
-    };
-
-    vector<char> returnflag,linestatus;
-    vector<double> quantity,extendedprice,discount,tax;
-    vector<unsigned> date;
-
-    for(string &path : paths) {
-        HdfsReader reader(path, argv[2]);
-        reader.connect();
-        reader.read(std::function<void(Block)>());
-
-        ParquetFile parquetFile(static_cast<uint8_t*>(reader.getBuffer()), reader.getFileSize());
-
+protected:
+    void readFile(ParquetFile parquetFile) {
         auto _returnflag = parquetFile.readColumn<string, char>(8, [](string v){return v.data()[0];});
         auto _linestatus = parquetFile.readColumn<string, char>(9, [](string v){return v.data()[0];});
         auto _quantity = parquetFile.readColumn<double>(4);
@@ -140,24 +101,36 @@ int main(int argc, char **argv) {
         date.insert(date.end(), _date.begin(), _date.end());
     }
 
-    /*for(int i=0; i<20; i++) {
-        cout << quantity[i] << endl;
-    }*/
-
-    // Aggregate
-    for (unsigned index=0;index!=5;++index) {
-        {
-            auto start=std::chrono::high_resolution_clock::now();
-            double results[4*8];
-            aggregate(returnflag,linestatus,quantity,extendedprice,discount,tax,date,results);
-            auto stop=std::chrono::high_resolution_clock::now();
-            print("A F",results+0);
-            print("N F",results+8);
-            print("N O",results+16);
-            print("R F",results+24);
-            cerr << "duration " << std::chrono::duration_cast<std::chrono::milliseconds>(stop-start).count() << "ms" << endl;
+    void execute() {
+        for (unsigned index=0;index!=5;++index) {
+            {
+                auto start=std::chrono::high_resolution_clock::now();
+                double results[4*8];
+                aggregate(returnflag,linestatus,quantity,extendedprice,discount,tax,date,results);
+                auto stop=std::chrono::high_resolution_clock::now();
+                print("A F",results+0);
+                print("N F",results+8);
+                print("N O",results+16);
+                print("R F",results+24);
+                cerr << "duration " << std::chrono::duration_cast<std::chrono::milliseconds>(stop-start).count() << "ms" << endl;
+            }
         }
     }
+
+private:
+    vector<char> returnflag, linestatus;
+    vector<double> quantity, extendedprice, discount, tax;
+    vector<unsigned> date;
+};
+
+int main(int argc, char **argv) {
+    Q1 query(argc, argv);
+    query.run();
+
+
+    vector<char> returnflag,linestatus;
+    vector<double> quantity,extendedprice,discount,tax;
+    vector<unsigned> date;
 
     return 0;
 }

@@ -9,7 +9,7 @@ set(SOURCE_FILES Block.cpp Compare.cpp ParquetFile.cpp)
 add_executable(hdfs_benchmark main.cpp ${SOURCE_FILES})
 add_executable(q1 q1.cpp ${SOURCE_FILES})
 
-find_package (libhdfs REQUIRED)
+find_package(libhdfs REQUIRED)
 find_package(parquet REQUIRED)
 
 include_directories(${LIBHDFS_INCLUDE_DIR} ${PARQUET_INCLUDE_DIRS})
