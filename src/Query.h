@@ -52,7 +52,7 @@ public:
         // Load the data
         for(string &path : paths) {
             // Read the file at `path` and construct a parquet file
-            this->hdfsReader->read(path, std::function<void(Block)>());
+            this->hdfsReader->read(path);
             ParquetFile parquetFile(static_cast<uint8_t*>(this->hdfsReader->getBuffer()), this->hdfsReader->getFileSize());
 
             // Let a concrete implementation load the data

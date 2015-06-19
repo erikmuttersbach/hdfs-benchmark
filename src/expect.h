@@ -3,7 +3,7 @@
                                     exit(1); \
                                 }
 
-#define EXPECT_NONZERO_EXC(r, func) if(fs == NULL) { \
+#define EXPECT_NONZERO_EXC(r, func) if(r == NULL) { \
                                     throw runtime_error(string(func)+string(" failed: ")+strerror(errno)); \
                                 }
 

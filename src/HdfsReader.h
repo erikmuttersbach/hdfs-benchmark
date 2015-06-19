@@ -58,7 +58,7 @@ public:
 
     bool isDirectory(string path) {
         hdfsFileInfo *fileInfo = hdfsGetPathInfo(fs, path.c_str());
-        EXPECT_NONZERO_EXC(this->fileInfo, "hdfsGetPathInfo")
+        EXPECT_NONZERO_EXC(fileInfo, "hdfsGetPathInfo")
 
         return fileInfo->mKind == tObjectKind::kObjectKindDirectory;
     }
@@ -66,14 +66,13 @@ public:
     /**
      * Starts reading the whole file
      */
-    template<typename Func>
-    void read(string path, Func func) {
+    void read(string path, function<void(Block&)> func = [](Block& b){}) {
         this->path = path;
         this->fileInfo = hdfsGetPathInfo(fs, path.c_str());
         EXPECT_NONZERO_EXC(this->fileInfo, "hdfsGetPathInfo")
 
         char ***blocksHosts = hdfsGetHosts(fs, path.c_str(), 0, fileInfo->mSize);
-        EXPECT_NONZERO_EXC(blockHosts, "hdfsGetHosts")
+        EXPECT_NONZERO_EXC(blocksHosts, "hdfsGetHosts")
 
         // Determine the set of hosts and the hosts of all blocks
         // to build up `pendingBlocks`

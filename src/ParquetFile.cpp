@@ -10,7 +10,22 @@ template<> string ParquetFile::readValue(ColumnReader &reader, int *repetitionLe
     return string((char*)byteArray.ptr, byteArray.len);
 }
 
+template<> ByteArray ParquetFile::readValue(ColumnReader &reader, int *repetitionLevel, int *defintionLevel)
+{
+    return reader.GetByteArray(repetitionLevel, defintionLevel);
+}
+
 template<> double ParquetFile::readValue(ColumnReader &reader, int *repetitionLevel, int *defintionLevel)
 {
     return reader.GetDouble(repetitionLevel, defintionLevel);
+}
+
+template<> int32_t ParquetFile::readValue(ColumnReader &reader, int *repetitionLevel, int *defintionLevel)
+{
+    return (int32_t)reader.GetInt32(repetitionLevel, defintionLevel);
+}
+
+template<> int64_t ParquetFile::readValue(ColumnReader &reader, int *repetitionLevel, int *defintionLevel)
+{
+    return (int64_t)reader.GetInt64(repetitionLevel, defintionLevel);
 }
