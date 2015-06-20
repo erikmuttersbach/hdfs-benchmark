@@ -35,6 +35,10 @@ public:
             hdfsFreeBuilder(hdfsBuilder);
         }
 
+        if(this->buffer) {
+            free(this->buffer);
+        }
+
         // TODO Free ...
     }
 
@@ -89,23 +93,11 @@ public:
         size_t blockCount = pendingBlocks.size();
 
         // Allocate memory for the whole file
+        if(this->buffer) {
+            free(this->buffer);
+        }
         this->buffer = static_cast<char*>(malloc(this->fileInfo->mSize));
         EXPECT_NONZERO_EXC(this->buffer, "malloc")
-
-        /*if (options.verbose) {
-            cout << "All Hosts: " << endl;
-            for (auto it = hosts.begin(); it != hosts.end(); it++) {
-                cout << "\t" << *it << endl;
-            }
-
-            cout << "All Blocks: " << endl;
-            for (auto it = blocks.begin(); it != blocks.end(); it++) {
-                cout << "\tBlock " << it->first << ":" << endl;
-                for (auto it2 = it->second.begin(); it2 != it->second.end(); it2++) {
-                    cout << "\t\t" << *it2 << endl;
-                }
-            }
-        }*/
 
         // block consumer
         thread consumer([&]() {
