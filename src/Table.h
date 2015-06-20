@@ -54,8 +54,6 @@ public:
         }
     }
 
-    
-
 private:
     HdfsReader &hdfsReader;
     vector<string> paths;
