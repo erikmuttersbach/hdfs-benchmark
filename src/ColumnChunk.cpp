@@ -6,7 +6,8 @@
 
 #include "ParquetFile.h"
 
-benchmark::ColumnChunk::Reader::Reader(ColumnChunk *p, parquet::ColumnChunk &columnChunk) {
+namespace benchmark {
+ColumnChunk::Reader::Reader(ColumnChunk *p, parquet::ColumnChunk &columnChunk) {
     size_t columnStart = columnChunk.meta_data.data_page_offset;
     if (columnChunk.meta_data.__isset.dictionary_page_offset) {
         if (columnStart > columnChunk.meta_data.dictionary_page_offset) {
@@ -20,20 +21,21 @@ benchmark::ColumnChunk::Reader::Reader(ColumnChunk *p, parquet::ColumnChunk &col
 }
 
 template<>
-string benchmark::ColumnChunk::Reader::read() {
+string ColumnChunk::Reader::read() {
     int defLevel, repLevel;
     ByteArray byteArray = this->columnReader->GetByteArray(&defLevel, &repLevel);
     return string(reinterpret_cast<const char*>(byteArray.ptr), byteArray.len);
 }
 
 template<>
-double benchmark::ColumnChunk::Reader::read() {
+double ColumnChunk::Reader::read() {
     int defLevel, repLevel;
     return this->columnReader->GetDouble(&defLevel, &repLevel);
 }
 
 template<>
-ByteArray benchmark::ColumnChunk::Reader::read() {
+ByteArray ColumnChunk::Reader::read() {
     int defLevel, repLevel;
     return this->columnReader->GetByteArray(&defLevel, &repLevel);
+}
 }

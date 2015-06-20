@@ -14,7 +14,7 @@ if (NOT PARQUET_FOUND)
         message(FATAL_ERROR "set PARQUET_DIR to the parquet-cpp project directory")
     endif()
 
-    set(PARQUET_INCLUDE_DIRS ${PARQUET_DIR}/src)
+    set(PARQUET_INCLUDE_DIRS ${PARQUET_DIR}/src ${PARQUET_DIR}/generated)
     set(PARQUET_LIBRARIES ${PARQUET_DIR}/build/libParquet.a
                           ${PARQUET_DIR}/build/libParquetCompression.a
                           ${PARQUET_DIR}/build/libThriftParquet.a

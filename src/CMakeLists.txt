@@ -13,10 +13,11 @@ add_executable(q17 q17.cpp ${SOURCE_FILES})
 
 find_package(libhdfs REQUIRED)
 find_package(parquet REQUIRED)
+find_package(thrift REQUIRED)
 
-include_directories(${LIBHDFS_INCLUDE_DIR} ${PARQUET_INCLUDE_DIRS})
+include_directories(${LIBHDFS_INCLUDE_DIR} ${PARQUET_INCLUDE_DIRS} ${THRIFT_INCLUDE_DIR})
 
-set(LIBRARIES ${LIBHDFS_LIBRARY} ${PARQUET_LIBRARIES} thrift)
+set(LIBRARIES ${LIBHDFS_LIBRARY} ${PARQUET_LIBRARIES} ${THRIFT_LIBRARY})
 target_link_libraries(hdfs_benchmark ${LIBRARIES})
 target_link_libraries(q1 ${LIBRARIES})
 target_link_libraries(q14 ${LIBRARIES})
