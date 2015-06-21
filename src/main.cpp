@@ -33,7 +33,11 @@ int main(int argc, char **argv) {
     for(auto &rowGroup : file.getRowGroups()) {
         vector<benchmark::ColumnChunk::Reader> columnReaders;
         for(auto &col : rowGroup.allColumns()) {
-            columnReaders.push_back(move(col.getReader()));
+            if(p[columnReaders.size()]) {
+                columnReaders.push_back(move(col.getReader()));
+            } else {
+                columnReaders.push_back(benchmark::ColumnChunk::Reader());
+            }
         }
 
         for(unsigned i=0; i<3; i++) {
