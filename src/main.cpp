@@ -27,9 +27,7 @@ int main(int argc, char **argv) {
         files.push_back(ParquetFile(static_cast<const uint8_t*>(reader.getBuffer()), reader.getFileSize()));
     }
     cout << endl;
-
-    /*
-    cout << "|";
+/*
     vector<bool> p(file.getFileMetaData().schema.size()-1);
     for(unsigned i=1; i<file.getFileMetaData().schema.size(); i++) {
         auto &schemaElement = file.getFileMetaData().schema[i];
