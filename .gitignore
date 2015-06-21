@@ -11,3 +11,5 @@ Makefile
 
 benchmark.rb
 perf.data
+
+*.swp
