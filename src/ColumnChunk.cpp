@@ -30,6 +30,7 @@ namespace benchmark {
     string ColumnChunk::Reader::read() {
         int defLevel, repLevel;
         ByteArray byteArray = this->columnReader->GetByteArray(&defLevel, &repLevel);
+        assert(defLevel >= repLevel);
         return string(reinterpret_cast<const char *>(byteArray.ptr), byteArray.len);
     }
 
@@ -52,13 +53,17 @@ namespace benchmark {
     template<>
     float ColumnChunk::Reader::read() {
         int defLevel, repLevel;
-        return this->columnReader->GetFloat(&defLevel, &repLevel);
+        auto val = this->columnReader->GetFloat(&defLevel, &repLevel);
+        assert(defLevel >= repLevel);
+        return val;
     }
 
     template<>
     int32_t ColumnChunk::Reader::read() {
         int defLevel, repLevel;
-        return this->columnReader->GetInt32(&defLevel, &repLevel);
+        auto val = this->columnReader->GetInt32(&defLevel, &repLevel);
+        assert(defLevel >= repLevel);
+        return val;
     }
 
     template<>
@@ -72,7 +77,8 @@ namespace benchmark {
     template<>
     bool ColumnChunk::Reader::read() {
         int defLevel, repLevel;
-        return this->columnReader->GetBool(&defLevel, &repLevel);
+        auto val = this->columnReader->GetBool(&defLevel, &repLevel);
+        return val;
     }
 
 
