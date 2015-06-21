@@ -41,6 +41,10 @@ public:
         return this->buffer;
     }
 
+    const size_t getBufferLength() {
+        return this->bufferLength;
+    }
+
     /*unsigned int getRowGroups() {
         return this->fileMetaData.row_groups.size();
     }*/

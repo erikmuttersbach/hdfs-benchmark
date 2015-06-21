@@ -3,8 +3,14 @@
 
 #include "HdfsReader.h"
 #include "ParquetFile.h"
+#include "sha256.h"
 
 using namespace std;
+
+void sha(ParquetFile &file) {
+    SHA256 sha256;
+    cout << endl << "SHA-256: " << sha256(file.getBuffer(), file.getBufferLength()) << endl;
+}
 
 int main(int argc, char **argv) {
     if(argc != 3) {
@@ -26,7 +32,7 @@ int main(int argc, char **argv) {
     }
     cout << endl;
 
-    for(unsigned i=0; i<2; i++) {
+    for(unsigned i=0; i<16; i++) {
         p[i] = true;
     }
 
@@ -36,12 +42,15 @@ int main(int argc, char **argv) {
             columnReaders.push_back(move(col.getReader()));
         }
 
-        for(unsigned i=0; i<100; i++) {
+        for(unsigned i=0; i<3; i++) {
             cout << "|";
             for(auto &columnReader : columnReaders) {
                 if(p[columnReader.getIdx()]) {
+                    sha(file);
                     assert(columnReader.hasNext());
+                    sha(file);
                     cout << " " << setw(15) << columnReader.readString() << " |";
+                    sha(file);
                 } else {
                     cout << " " << setw(15) << " NO " << " |";
                 }
