@@ -51,8 +51,6 @@ public:
         for(string &path : this->paths) {
 			cout << "Reading " << path << " (" << this->hdfsReader.getFileSize() << ")" << endl;
             this->hdfsReader.read(path);
-			SHA256 sha256;
-            cout << "SHA-256: " << sha256(this->hdfsReader.getBuffer(), this->hdfsReader.getFileSize()) << endl;
 			ParquetFile parquetFile(static_cast<uint8_t*>(this->hdfsReader.getBuffer()), this->hdfsReader.getFileSize());
             parquetFile.printSchema();
             readChunk(parquetFile);
