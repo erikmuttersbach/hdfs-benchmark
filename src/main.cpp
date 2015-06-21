@@ -17,7 +17,17 @@ int main(int argc, char **argv) {
     ParquetFile file(static_cast<const uint8_t*>(reader.getBuffer()), reader.getFileSize());
     file.printSchema();
 
+    vector<ParquetFile> files;
     cout << "|";
+    vector<bool> p(file.getFileMetaData().schema.size()-1);
+    for(unsigned i=1; i<file.getFileMetaData().schema.size(); i++) {
+        auto &schemaElement = file.getFileMetaData().schema[i];
+        cout << " " << setw(15) << schemaElement.name << " |";
+
+        files.push_back(ParquetFile(static_cast<const uint8_t*>(reader.getBuffer()), reader.getFileSize()));
+    }
+    cout << endl;
+/*
     vector<bool> p(file.getFileMetaData().schema.size()-1);
     for(unsigned i=1; i<file.getFileMetaData().schema.size(); i++) {
         auto &schemaElement = file.getFileMetaData().schema[i];
@@ -25,10 +35,6 @@ int main(int argc, char **argv) {
         p[i-1] = false;
     }
     cout << endl;
-
-    for(unsigned i=2; i<3; i++) {
-        p[i] = true;
-    }
 
     for(auto &rowGroup : file.getRowGroups()) {
         vector<benchmark::ColumnChunk::Reader> columnReaders;
@@ -48,7 +54,7 @@ int main(int argc, char **argv) {
             }
             cout << endl;
         }
-    }
+    }*/
 
     return 0;
 }
