@@ -26,6 +26,10 @@ namespace benchmark {
             return ColumnChunk(parquetFile, this, this->rowGroup.columns[col], col);
         }
 
+        unsigned getNumberOfColumns() {
+            return this->rowGroup.columns.size();
+        }
+
         vector<ColumnChunk>& allColumns();
 
     private:

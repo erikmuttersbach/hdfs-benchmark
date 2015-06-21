@@ -36,14 +36,14 @@ int main(int argc, char **argv) {
         cout << " " << setw(15) << schemaElement.name << " |";
         p[i-1] = false;
     }
-    cout << endl;
+    cout << endl;*/
 
-    for(auto &rowGroup : file.getRowGroups()) {
+    for(unsigned ri=0; ri<file.getRowGroups().size(); ri++) {
         vector<benchmark::ColumnChunk::Reader> columnReaders;
-        for(auto &col : rowGroup.allColumns()) {
-            columnReaders.push_back(move(col.getReader()));
+        for(unsigned ci=0; ci<file.getRowGroups()[ri].getNumberOfColumns(); ci++) {
+            columnReaders.push_back(files[ci].getRowGroups()[ri].getColumn(ci).getReader());
         }
-
+/*
         for(unsigned i=0; i<100; i++) {
             cout << "|";
             for(auto &columnReader : columnReaders) {
@@ -55,8 +55,8 @@ int main(int argc, char **argv) {
                 }
             }
             cout << endl;
-        }
-    }*/
+        }*/
+    }
 
     return 0;
 }
