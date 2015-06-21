@@ -54,10 +54,10 @@ int main(int argc, char **argv) {
                 sscanf(reinterpret_cast<const char *>(dateStr.c_str()), "%d-%d-%d", &a, &b, &c);
                 unsigned date = (a * 10000) + (b * 100) + c;
 
-                //char returnflag = returnflagColumn.read < ByteArray > ().ptr[0];
+                char returnflag = returnflagColumn.read < ByteArray > ().ptr[0];
                 char linestatus = linestatusColumn.read < ByteArray > ().ptr[0];
-                //double quantity = quantityColumn.read < double > ();
-                /*double extendedprice = extendedpriceColumn.read < double > ();
+                double quantity = quantityColumn.read < double > ();
+                double extendedprice = extendedpriceColumn.read < double > ();
                 double discount = discountColumn.read < double > ();
                 double tax = taxColumn.read < double > ();
 
@@ -74,7 +74,7 @@ int main(int argc, char **argv) {
                 s.sum4 += v2;
                 s.sum5 += discount;
                 s.count++;
-            */}
+            }
         }
     });
 
