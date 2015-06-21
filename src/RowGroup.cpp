@@ -11,7 +11,7 @@ namespace benchmark {
         static vector<ColumnChunk> cols;
         if (cols.size() == 0) {
             for (unsigned i = 0; i < parquetFile->getFileMetaData().schema.size()-1; i++) {
-                cols.push_back(getColumn(i));
+                cols.push_back(move(getColumn(i)));
             }
         }
         return cols;
