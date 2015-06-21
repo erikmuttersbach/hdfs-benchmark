@@ -15,19 +15,23 @@ class ParquetFile;
 
 using namespace std;
 
-class RowGroup {
-public:
-    RowGroup(ParquetFile *parquetFile, parquet::RowGroup &rowGroup) : rowGroup(rowGroup), parquetFile(parquetFile) {
+namespace benchmark {
+    class RowGroup {
+    public:
+        RowGroup(ParquetFile *parquetFile, parquet::RowGroup &rowGroup) : rowGroup(rowGroup), parquetFile(parquetFile) {
 
-    }
+        }
 
-    ColumnChunk getColumn(unsigned int col) {
-        return ColumnChunk(parquetFile, this, this->rowGroup.columns[col], col);
-    }
+        ColumnChunk getColumn(unsigned int col) {
+            return ColumnChunk(parquetFile, this, this->rowGroup.columns[col], col);
+        }
 
-private:
-    parquet::RowGroup rowGroup;
-    ParquetFile *parquetFile;
+        vector<ColumnChunk>& allColumns();
+
+    private:
+        parquet::RowGroup rowGroup;
+        ParquetFile *parquetFile;
+    };
 };
 
 

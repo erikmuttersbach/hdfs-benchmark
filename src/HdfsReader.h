@@ -280,7 +280,7 @@ private:
     condition_variable cv;
 
     // Buffer for the whole read file
-    char *buffer;
+    char *buffer = 0;
 
     // Blocks to be downloaded
     PriorityQueue<Block, vector<Block>, Compare> pendingBlocks;

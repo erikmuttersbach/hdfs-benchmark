@@ -33,7 +33,7 @@ public:
         this->readMetaData();
 
         for(auto &rowGroup : this->fileMetaData.row_groups) {
-            this->rowGroups.push_back(::RowGroup(this, rowGroup));
+            this->rowGroups.push_back(benchmark::RowGroup(this, rowGroup));
         }
     }
 
@@ -44,7 +44,7 @@ public:
     /*unsigned int getRowGroups() {
         return this->fileMetaData.row_groups.size();
     }*/
-    vector<::RowGroup> getRowGroups() {
+    vector<benchmark::RowGroup> getRowGroups() {
         return this->rowGroups;
     }
 
@@ -151,7 +151,7 @@ private:
     size_t bufferLength;
 
     FileMetaData fileMetaData;
-    vector<::RowGroup> rowGroups;
+    vector<benchmark::RowGroup> rowGroups;
 };
 
 

@@ -11,9 +11,10 @@ using namespace std;
 using namespace parquet_cpp;
 
 class ParquetFile;
-class RowGroup;
 
 namespace benchmark {
+    class RowGroup;
+
     class ColumnChunk {
     public:
         ColumnChunk(ParquetFile *parquetFile, RowGroup *rowGroup, parquet::ColumnChunk &columnChunk, unsigned int idx) :
@@ -24,6 +25,9 @@ namespace benchmark {
         class Reader {
         public:
             Reader(ColumnChunk *p, parquet::ColumnChunk &columnChunk);
+            Reader(const Reader&& r) : input(r.input), columnReader(r.columnReader), p(r.p) {
+
+            }
 
             bool hasNext() {
                 return this->columnReader->HasNext();
@@ -32,14 +36,25 @@ namespace benchmark {
             template<typename TR>
             TR read();
 
-            ~Reader() {
-                delete input;
-                delete columnReader;
+            string readString(size_t readString = 15);
+
+            unsigned getIdx() {
+                return this->p->idx;
             }
 
+            /*~Reader() {
+                if(this->input) {
+                    delete input;
+                }
+                if(this->columnReader) {
+                    delete columnReader;
+                }
+            }*/
+
         private:
-            InMemoryInputStream *input;
-            ColumnReader *columnReader;
+            ColumnChunk *p = 0;
+            InMemoryInputStream *input = 0;
+            ColumnReader *columnReader = 0;
         };
 
         ColumnChunk::Reader getReader() {
