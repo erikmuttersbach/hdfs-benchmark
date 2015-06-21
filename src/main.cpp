@@ -3,14 +3,8 @@
 
 #include "HdfsReader.h"
 #include "ParquetFile.h"
-#include "sha256.h"
 
 using namespace std;
-
-void sha(ParquetFile &file) {
-    SHA256 sha256;
-    cout << endl << "SHA-256: " << sha256(file.getBuffer(), file.getBufferLength()) << endl;
-}
 
 int main(int argc, char **argv) {
     if(argc != 3) {
@@ -28,13 +22,13 @@ int main(int argc, char **argv) {
     for(unsigned i=1; i<file.getFileMetaData().schema.size(); i++) {
         auto &schemaElement = file.getFileMetaData().schema[i];
         cout << " " << setw(15) << schemaElement.name << " |";
-        p[i-1] = false;
+        p[i-1] = true;
     }
     cout << endl;
 
-    for(unsigned i=0; i<16; i++) {
+    /*for(unsigned i=0; i<16; i++) {
         p[i] = true;
-    }
+    }*/
 
     for(auto &rowGroup : file.getRowGroups()) {
         vector<benchmark::ColumnChunk::Reader> columnReaders;
@@ -46,11 +40,13 @@ int main(int argc, char **argv) {
             cout << "|";
             for(auto &columnReader : columnReaders) {
                 if(p[columnReader.getIdx()]) {
-                    sha(file);
-                    assert(columnReader.hasNext());
-                    sha(file);
-                    cout << " " << setw(15) << columnReader.readString() << " |";
-                    sha(file);
+                    try {
+                        assert(columnReader.hasNext());
+                        cout << " " << setw(15) << columnReader.readString() << " |";
+                    } catch(exception &e) {
+                        p[columnReader.getIdx()] = false;
+                        cout << " " << setw(15) << " EXC " << " |";
+                    }
                 } else {
                     cout << " " << setw(15) << " NO " << " |";
                 }
