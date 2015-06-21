@@ -24,8 +24,8 @@ namespace benchmark {
 
         class Reader {
         public:
-            Reader() {
-                
+            Reader(ColumnChunk *p) : p(p) {
+
             }
             Reader(ColumnChunk *p, parquet::ColumnChunk &columnChunk);
             Reader(const Reader&& r) : input(r.input), columnReader(r.columnReader), p(r.p) {

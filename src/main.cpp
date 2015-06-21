@@ -36,7 +36,7 @@ int main(int argc, char **argv) {
             if(p[columnReaders.size()]) {
                 columnReaders.push_back(move(col.getReader()));
             } else {
-                columnReaders.push_back(benchmark::ColumnChunk::Reader());
+                columnReaders.push_back(benchmark::ColumnChunk::Reader(&col));
             }
         }
 
