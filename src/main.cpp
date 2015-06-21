@@ -18,9 +18,9 @@ int main(int argc, char **argv) {
     file.printSchema();
 
     cout << "|";
-    vector<bool> p(file.getFileMetaData().schema.size()-1);
-    for(unsigned i=1; i<file.getFileMetaData().schema.size(); i++) {
-        auto &schemaElement = file.getFileMetaData().schema[i];
+    vector<bool> p(file.getFileMetaData()->schema.size()-1);
+    for(unsigned i=1; i<file.getFileMetaData()->schema.size(); i++) {
+        auto &schemaElement = file.getFileMetaData()->schema[i];
         cout << " " << setw(15) << schemaElement.name << " |";
         p[i-1] = true;
     }
@@ -31,6 +31,7 @@ int main(int argc, char **argv) {
     }*/
 
     for(auto &rowGroup : file.getRowGroups()) {
+        vector<benchmark::ColumnChunk> columnChunks;
         vector<benchmark::ColumnChunk::Reader> columnReaders;
         for(auto &col : rowGroup.allColumns()) {
             if(p[columnReaders.size()]) {
