@@ -33,6 +33,7 @@ int main(int argc, char **argv) {
     Table part(hdfsReader, vector<string>{argv[2]});
     part.printSchema();
     part.read([&sums, &count](ParquetFile &parquetFile) {
+        // TODO Should be async
         for (auto &rowGroup : parquetFile.getRowGroups()) {
             auto quantityColumn = rowGroup.getColumn(4).getReader();
             auto extendedpriceColumn = rowGroup.getColumn(5).getReader();
