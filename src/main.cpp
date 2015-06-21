@@ -44,7 +44,7 @@ int main(int argc, char **argv) {
                         assert(columnReader.hasNext());
                         cout << " " << setw(15) << columnReader.readString() << " |";
                     } catch(exception &e) {
-                        p[columnReader.getIdx()] = false;
+                        //p[columnReader.getIdx()] = false;
                         cout << " " << setw(15) << " EXC " << " |";
                     }
                 } else {
