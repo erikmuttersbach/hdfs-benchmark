@@ -26,7 +26,7 @@ int main(int argc, char **argv) {
     }
     cout << endl;
 
-    for(unsigned i=0; i<16; i++) {
+    for(unsigned i=0; i<1; i++) {
         p[i] = true;
     }
 
