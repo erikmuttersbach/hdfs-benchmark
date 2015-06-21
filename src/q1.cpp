@@ -43,9 +43,9 @@ int main(int argc, char **argv) {
             auto dateColumn = rowGroup.getColumn(10).getReader();
 
             while (dateColumn.hasNext()) {
-                assert(returnflagColumn.hasNext()/* && linestatusColumn.hasNext() &&
+                assert(returnflagColumn.hasNext() && linestatusColumn.hasNext() && 
                        extendedpriceColumn.hasNext() && discountColumn.hasNext() &&
-                       taxColumn.hasNext() && quantityColumn.hasNext()*/);
+                       taxColumn.hasNext() && quantityColumn.hasNext());
 
                 count++;
 				
@@ -54,10 +54,10 @@ int main(int argc, char **argv) {
                 sscanf(reinterpret_cast<const char *>(dateStr.c_str()), "%d-%d-%d", &a, &b, &c);
                 unsigned date = (a * 10000) + (b * 100) + c;
 
-                char returnflag = returnflagColumn.read < ByteArray > ().ptr[0];
-                /*char linestatus = linestatusColumn.read < ByteArray > ().ptr[0];
-                double quantity = quantityColumn.read < double > ();
-                double extendedprice = extendedpriceColumn.read < double > ();
+                //char returnflag = returnflagColumn.read < ByteArray > ().ptr[0];
+                char linestatus = linestatusColumn.read < ByteArray > ().ptr[0];
+                //double quantity = quantityColumn.read < double > ();
+                /*double extendedprice = extendedpriceColumn.read < double > ();
                 double discount = discountColumn.read < double > ();
                 double tax = taxColumn.read < double > ();
 
