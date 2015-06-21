@@ -22,13 +22,13 @@ int main(int argc, char **argv) {
     for(unsigned i=1; i<file.getFileMetaData()->schema.size(); i++) {
         auto &schemaElement = file.getFileMetaData()->schema[i];
         cout << " " << setw(15) << schemaElement.name << " |";
-        p[i-1] = true;
+        p[i-1] = false;
     }
     cout << endl;
 
-    /*for(unsigned i=0; i<16; i++) {
+    for(unsigned i=0; i<16; i++) {
         p[i] = true;
-    }*/
+    }
 
     for(auto &rowGroup : file.getRowGroups()) {
         vector<benchmark::ColumnChunk> columnChunks;
@@ -41,7 +41,7 @@ int main(int argc, char **argv) {
             }
         }
 
-        for(unsigned i=0; i<3; i++) {
+        for(unsigned i=0; i<10; i++) {
             cout << "|";
             for(auto &columnReader : columnReaders) {
                 if(p[columnReader.getIdx()]) {
