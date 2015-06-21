@@ -96,8 +96,8 @@ public:
     template<typename T>
     T readValue(ColumnReader &reader, int *repetitionLevel, int *defintionLevel);
 
-    FileMetaData getFileMetaData() {
-        return this->fileMetaData;
+    FileMetaData *getFileMetaData() {
+        return &this->fileMetaData;
     }
 
     void printSchema() {

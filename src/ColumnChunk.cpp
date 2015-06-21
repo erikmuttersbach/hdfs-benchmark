@@ -23,7 +23,7 @@ namespace benchmark {
         const uint8_t *columnBuffer = p->parquetFile->getBuffer() + columnStart;
         this->input = new InMemoryInputStream(columnBuffer, columnChunk.meta_data.total_compressed_size);
         this->columnReader = new ColumnReader(&columnChunk.meta_data,
-                                              &p->parquetFile->getFileMetaData().schema[p->idx + 1], input);
+                                              &p->parquetFile->getFileMetaData()->schema[p->idx + 1], input);
     }
 
     template<>
@@ -84,7 +84,7 @@ namespace benchmark {
 
     string ColumnChunk::Reader::readString(size_t length) {
         stringstream ss;
-        auto &schemaElement = this->p->parquetFile->getFileMetaData().schema[this->p->idx+1];
+        auto &schemaElement = this->p->parquetFile->getFileMetaData()->schema[this->p->idx+1];
         switch(schemaElement.type) {
             case Type::BOOLEAN:
                 ss << this->read<bool>(); break;

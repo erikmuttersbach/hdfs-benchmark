@@ -10,7 +10,7 @@ namespace benchmark {
     vector<benchmark::ColumnChunk>& RowGroup::allColumns() {
         static vector<ColumnChunk> cols;
         if (cols.size() == 0) {
-            for (unsigned i = 0; i < parquetFile->getFileMetaData().schema.size()-1; i++) {
+            for (unsigned i = 0; i < parquetFile->getFileMetaData()->schema.size()-1; i++) {
                 cols.push_back(move(getColumn(i)));
             }
         }
