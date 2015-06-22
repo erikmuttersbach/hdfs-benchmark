@@ -20,6 +20,11 @@ public:
         make_heap(elements.begin(), elements.end(), _Compare());
     }
 
+    void clear() {
+        elements.clear();
+        make_heap(elements.begin(), elements.end(), _Compare());
+    }
+
     void push(_Tp element) {
         elements.push_back(element);
         push_heap(elements.begin(), elements.end(), _Compare());

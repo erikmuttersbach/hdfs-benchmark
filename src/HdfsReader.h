@@ -35,11 +35,7 @@ public:
             hdfsFreeBuilder(hdfsBuilder);
         }
 
-        if(this->buffer) {
-            free(this->buffer);
-        }
-
-        // TODO Free ...
+        // TODO clean up
     }
 
     void connect() {
@@ -57,7 +53,18 @@ public:
             filesVector.push_back(files[i]);
         }
 
+        hdfsFreeFileInfo(files, entries);
         return filesVector;
+    }
+
+    void listDirectory(string path, function<void(hdfsFileInfo&)> func) {
+        int entries;
+        hdfsFileInfo *files = hdfsListDirectory(this->fs, path.c_str(), &entries);
+        EXPECT_NONZERO_EXC(files, "hdfsListDirectory")
+
+        for(unsigned i=0; i<entries; i++) {
+            func(files[i]);
+        }
     }
 
     bool isDirectory(string path) {
@@ -68,29 +75,66 @@ public:
     }
 
     /**
-     * Starts reading the whole file
+     * Read a file at `path` or all files in directory at `path`. For each
+     * read file `func` will be called.
+     *
+     * TODO can only be called if A) connected, B) another read(...) is not in progress
      */
     void read(string path, function<void(Block&)> func = [](Block& b){}) {
-        this->path = path;
-        this->fileInfo = hdfsGetPathInfo(fs, path.c_str());
-        EXPECT_NONZERO_EXC(this->fileInfo, "hdfsGetPathInfo")
+        // Clean old run
+        // TODO also in destructor
+        this->pendingBlocks.clear();
+        this->loadedBlocks.clear();
+        this->blocks.clear();
+        this->hosts.clear();
 
-        char ***blocksHosts = hdfsGetHosts(fs, path.c_str(), 0, fileInfo->mSize);
-        EXPECT_NONZERO_EXC(blocksHosts, "hdfsGetHosts")
-
-        // Determine the set of hosts and the hosts of all blocks
-        // to build up `pendingBlocks`
-        set<string> hosts;
-        for (size_t block = 0; blocksHosts[block]; block++) {
-            set<string> blockHosts;
-            for (size_t j = 0; blocksHosts[block][j]; j++) {
-                blockHosts.insert(blocksHosts[block][j]);
-                hosts.insert(blocksHosts[block][j]);
-            }
-
-            pendingBlocks.push(Block(block, blockHosts));
+        // Check if path is pointing at a file or a directory
+        vector<string> paths;
+        if(this->isDirectory(path)) {
+            this->listDirectory(path, [&paths](hdfsFileInfo &fileInfo) {
+                if(fileInfo.mKind == tObjectKind::kObjectKindFile) {
+                    paths.push_back(fileInfo.mName);
+                }
+            });
+        } else {
+            paths.push_back(path);
         }
+
+        // Determine the set of hosts and the hosts of all files
+        // to build up `pendingBlocks`
+        for(auto &path : paths) {
+            auto fileInfo = hdfsGetPathInfo(fs, path.c_str());
+            EXPECT_NONZERO_EXC(fileInfo, "hdfsGetPathInfo")
+
+            cout << fileInfo->mName << endl;
+
+            char ***fileBlocksHosts = hdfsGetHosts(fs, path.c_str(), 0, fileInfo->mSize);
+            EXPECT_NONZERO_EXC(fileBlocksHosts, "hdfsGetHosts")
+
+            for (size_t blockIdx = 0; fileBlocksHosts[blockIdx]; blockIdx++) {
+                if(blockIdx > 0) {
+                    throw runtime_error("Multi-block files are not supported ("+path+")");
+                }
+
+                set<string> blockHosts;
+                for (size_t hostIdx = 0; fileBlocksHosts[blockIdx][hostIdx]; hostIdx++) {
+                    char *host = fileBlocksHosts[blockIdx][hostIdx];
+                    blockHosts.insert(host);
+                    hosts.insert(host);
+                }
+
+                pendingBlocks.push(Block(fileInfo->mName, blockIdx, blockHosts));
+            }
+        }
+
         size_t blockCount = pendingBlocks.size();
+
+        cout << "PENDING BLOCKS: " << endl;
+        for(Block &block : pendingBlocks) {
+            cout << block.path << endl;
+        }
+
+        /*
 
         // Allocate memory for the whole file
         if(this->buffer) {
@@ -143,19 +187,20 @@ public:
         //cout << "Downloaded " << fileInfo->mSize/(1024.0*1024.0) << " MB with " << ((double)fileInfo->mSize/(1024.0*1024.0))/seconds << " MB/s)"<< endl;
 
         //TODO free
+         */
     }
 
-    tOffset getFileSize() {
+    /*tOffset getFileSize() {
         return this->fileInfo->mSize;
     }
 
     tOffset getBlockSize() {
         return this->fileInfo->mBlockSize;
-    }
+    }*/
 
-    void *getBuffer() {
+    /*void *getBuffer() {
         return this->buffer;
-    }
+    }*/
 
     void setSocket(string socket) {
         this->socket = socket;
@@ -192,7 +237,7 @@ private:
         return fs;
     }
 
-    void reader(hdfsFileInfo *fileInfo, string host) {
+    /*void reader(hdfsFileInfo *fileInfo, string host) {
         cout << "Thread " << host << " starting" << endl;
 
         struct hdfsBuilder *hdfsBuilder = hdfsNewBuilder();
@@ -261,10 +306,10 @@ private:
 
         hdfsCloseFile(fs, file);
         cout << "Thread " << host << " finished" << endl;
-    }
+    }*/
 
 private:
-    string path;
+    //string path;
     string namenode;
     string socket;
     int namenodePort = 9000;
@@ -273,14 +318,17 @@ private:
 
     struct hdfsBuilder *hdfsBuilder;
     hdfsFS fs;
-    hdfsFile file;
-    hdfsFileInfo *fileInfo;
+    //hdfsFile file;
+    //hdfsFileInfo *fileInfo;
 
     mutex blocksMutex;
     condition_variable cv;
 
     // Buffer for the whole read file
-    char *buffer = 0;
+    //char *buffer = 0;
+
+    // All Hosts
+    set<string> hosts;
 
     // Blocks to be downloaded
     PriorityQueue<Block, vector<Block>, Compare> pendingBlocks;

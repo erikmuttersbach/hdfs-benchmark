@@ -14,10 +14,13 @@ add_executable(q17 q17.cpp ${SOURCE_FILES})
 find_package(libhdfs REQUIRED)
 find_package(parquet REQUIRED)
 find_package(thrift REQUIRED)
+find_package(Boost REQUIRED COMPONENTS thread log log_setup system)
+
+add_definitions(-DBOOST_LOG_DYN_LINK=1)
 
 include_directories(${LIBHDFS_INCLUDE_DIR} ${PARQUET_INCLUDE_DIRS} ${THRIFT_INCLUDE_DIR})
 
-set(LIBRARIES ${LIBHDFS_LIBRARY} ${PARQUET_LIBRARIES} ${THRIFT_LIBRARY})
+set(LIBRARIES ${LIBHDFS_LIBRARY} ${PARQUET_LIBRARIES} ${THRIFT_LIBRARY} ${Boost_LIBRARIES})
 target_link_libraries(hdfs_benchmark ${LIBRARIES})
 target_link_libraries(q1 ${LIBRARIES})
 target_link_libraries(q14 ${LIBRARIES})

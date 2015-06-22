@@ -6,10 +6,11 @@
 #include <vector>
 #include <iomanip>
 #include <hdfs/hdfs.h>
+#include <boost/log/trivial.hpp>
 
 #include "HdfsReader.h"
 #include "ParquetFile.h"
-#include "Table.h"
+//#include "Table.h"
 
 static void print(const char *header, double *values) {
     cerr << header;
@@ -18,6 +19,10 @@ static void print(const char *header, double *values) {
 }
 
 int main(int argc, char **argv) {
+    if(argc != 3) {
+        cout << "Usage: " << argv[0] << " NAMENODE LINEITEM-PATH" << endl;
+        exit(1);
+    }
     HdfsReader hdfsReader(argv[1]);
     hdfsReader.connect();
 
@@ -30,11 +35,11 @@ int main(int argc, char **argv) {
 
     auto start=std::chrono::high_resolution_clock::now();
 
-    Table part(hdfsReader, vector<string>{argv[2]});
-    part.printSchema();
-    part.read([&sums, &count](ParquetFile &parquetFile) {
-        // TODO Should be async
-        for (auto &rowGroup : parquetFile.getRowGroups()) {
+    //Table part(hdfsReader, vector<string>{argv[2]});
+    //part.printSchema();
+    hdfsReader.read(argv[2], [&sums, &count](Block &parquetFile) {
+        // TODO Should be async and on 4 queues (with maybe more and then merge ... )
+        /*for (auto &rowGroup : parquetFile.getRowGroups()) {
             auto quantityColumn = rowGroup.getColumn(4).getReader();
             auto extendedpriceColumn = rowGroup.getColumn(5).getReader();
             auto discountColumn = rowGroup.getColumn(6).getReader();
@@ -76,7 +81,7 @@ int main(int argc, char **argv) {
                 s.sum5 += discount;
                 s.count++;
             }
-        }
+        }*/
     });
 
 

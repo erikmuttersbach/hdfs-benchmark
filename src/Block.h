@@ -8,16 +8,28 @@
 #include <set>
 #include <string>
 
+#include <hdfs/hdfs.h>
+
 using namespace std;
 
 /**
- * Represents a block that has been downloaded
+ * A block of a HDFS-resident file
  */
 class Block {
 public:
-    Block(uint32_t idx, set<string> hosts);
-    Block(uint32_t idx, string host, void *data, size_t len);
+    Block(string path, uint32_t idx, string host, void *data, size_t len) :
+            idx(idx), host(host), data(data), len(len), path(path) {
+    }
 
+    Block(string path, uint32_t idx, set<string> hosts) :
+            idx(idx), hosts(hosts), path(path) {
+    }
+
+    ~Block() {
+
+    }
+
+    string path;
     set<string> hosts;
     uint32_t idx;
     void *data;
