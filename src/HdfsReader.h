@@ -171,7 +171,7 @@ public:
 
                         if (blockCount == consumedBlocks) {
                             break;
-                        } else {
+                        } else if(loadedBlocks.size() > 0) {
                             block = new Block(loadedBlocks.pop());
                         }
                     }
