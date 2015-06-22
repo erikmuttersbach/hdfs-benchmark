@@ -160,7 +160,7 @@ public:
                         break;
                     }
 
-                    Block *block = nullptr;
+                    Block *block = 0;
                     {
                         unique_lock<mutex> lock(blocksMutex);
                         if (loadedBlocks.size() == 0) {
@@ -176,9 +176,11 @@ public:
                         }
                     }
 
-                    if (func) {
+                    if (func && block != 0) {
                         func(*block);
                         BOOST_LOG_TRIVIAL(debug) << "Thread-" << i << " finished work";
+                    } else if(block == 0) {
+                        BOOST_LOG_TRIVIAL(debug) << "Thread-" << i << " found block == 0";
                     }
 
                     consumedBlocks++;
