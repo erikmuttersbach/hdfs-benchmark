@@ -48,11 +48,11 @@ public:
      * `readChunk(...)` will be called for each file.
      */
     void read(function<void(ParquetFile &parquetFile)> readChunk) {
+        unsigned i=1;
         for(string &path : this->paths) {
-			cout << "Reading " << path << " (" << this->hdfsReader.getFileSize() << ")" << endl;
+			cout << "Reading " << path << " (" << i++ << "/" << this->paths.size() << ")" << endl;
             this->hdfsReader.read(path);
 			ParquetFile parquetFile(static_cast<uint8_t*>(this->hdfsReader.getBuffer()), this->hdfsReader.getFileSize());
-            parquetFile.printSchema();
             readChunk(parquetFile);
         }
     }
