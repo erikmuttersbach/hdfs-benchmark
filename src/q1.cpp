@@ -111,7 +111,7 @@ int main(int argc, char **argv) {
             groups[i].count += _groups[i].count;
         }
         groupsMutex.unlock();
-    });
+    }, thread::hardware_concurrency());
 
 
     for (unsigned index = 0; index != 4; ++index) {

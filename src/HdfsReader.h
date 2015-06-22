@@ -129,9 +129,10 @@ public:
         boost::atomic<unsigned> consumedBlocks(0);
 
         // block consumers
+        bool stopConsumers = false;
         boost::thread_group consumers;
         for(unsigned int i=0; i<consumerCount; i++) {
-            consumers.create_thread([&]() {
+            consumers.create_thread([i, &blockCount, &consumedBlocks, this, &func, &stopConsumers]() {
                 //uint32_t lastBlock = -1;
 
                 while (true) {
@@ -155,7 +156,7 @@ public:
                     }*/
 
                     // B) doesnt guarantee order
-                    if (blockCount == consumedBlocks) {
+                    if (blockCount == consumedBlocks || stopConsumers) {
                         break;
                     }
 
@@ -163,19 +164,27 @@ public:
                     {
                         unique_lock<mutex> lock(blocksMutex);
                         if (loadedBlocks.size() == 0) {
+                            BOOST_LOG_TRIVIAL(debug) << "Thread-" << i << " sleeping";
                             cv.wait(lock);
+                            BOOST_LOG_TRIVIAL(debug) << "Thread-" << i << " woken up";
                         }
 
-                        block = new Block(loadedBlocks.pop());
+                        if (blockCount == consumedBlocks) {
+                            break;
+                        } else {
+                            block = new Block(loadedBlocks.pop());
+                        }
                     }
 
                     if (func) {
                         func(*block);
+                        BOOST_LOG_TRIVIAL(debug) << "Thread-" << i << " finished work";
                     }
 
                     consumedBlocks++;
                     delete block;
                 }
+                BOOST_LOG_TRIVIAL(debug) << "Thread-" << i << " finishing";
             });
         }
 
@@ -188,6 +197,12 @@ public:
         // Wait for all threads to finish
         for (auto &host : hosts) {
             threads[host].join();
+        }
+
+        {
+            unique_lock<mutex> lock(blocksMutex);
+            stopConsumers = true;
+            cv.notify_all();
         }
 
         consumers.join_all();
