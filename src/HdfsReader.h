@@ -173,6 +173,7 @@ public:
                             break;
                         } else if(loadedBlocks.size() > 0) {
                             block = new Block(loadedBlocks.pop());
+                            consumedBlocks++;
                         }
                     }
 
@@ -183,7 +184,7 @@ public:
                         BOOST_LOG_TRIVIAL(debug) << "Thread-" << i << " found block == 0";
                     }
 
-                    consumedBlocks++;
+
                     delete block;
                 }
                 BOOST_LOG_TRIVIAL(debug) << "Thread-" << i << " finishing";
