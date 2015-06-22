@@ -83,7 +83,7 @@ public:
      *
      * TODO can only be called if A) connected, B) another read(...) is not in progress
      */
-    void read(string path, function<void(Block &)> func = [](Block &b) { }) {
+    void read(string path, function<void(Block &)> func = [](Block b) { }) {
         this->reset();
 
         // Check if path is pointing at a file or a directory
