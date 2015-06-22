@@ -15,6 +15,8 @@
 #include <unordered_map>
 
 #include <boost/log/trivial.hpp>
+#include <boost/thread.hpp>
+#include <boost/atomic/atomic.hpp>
 
 #include <string.h>
 #include <hdfs/hdfs.h>
@@ -83,7 +85,7 @@ public:
      *
      * TODO can only be called if A) connected, B) another read(...) is not in progress
      */
-    void read(string path, function<void(Block &)> func = [](Block b) { }) {
+    void read(string path, function<void(Block &)> func = [](Block b) { }, unsigned consumerCount = 1) {
         this->reset();
 
         // Check if path is pointing at a file or a directory
@@ -124,50 +126,58 @@ public:
         }
 
         size_t blockCount = pendingBlocks.size();
+        boost::atomic<unsigned> consumedBlocks(0);
 
         // block consumers
-        thread consumer([&]() {
-            uint32_t lastBlock = -1;
-            unsigned consumedBlocks = 0;
-            while (true) {
-                // A) old impl. guarantees blocks arrive in order
-                /*unique_lock<mutex> lock(blocksMutex);
-                if(loadedBlocks.size() == 0 || loadedBlocks.peek().idx != lastBlock+1) {
-                    cv.wait(lock);
-                }
+        boost::thread_group consumers;
+        for(unsigned int i=0; i<consumerCount; i++) {
+            consumers.create_thread([&]() {
+                //uint32_t lastBlock = -1;
 
-                if(loadedBlocks.peek().idx == lastBlock+1) {
-                    auto block = loadedBlocks.pop();
-                    lastBlock = block.idx;
-
-                    if(func) {
-                        func(block);
+                while (true) {
+                    // A) old impl. guarantees blocks arrive in order
+                    /*unique_lock<mutex> lock(blocksMutex);
+                    if(loadedBlocks.size() == 0 || loadedBlocks.peek().idx != lastBlock+1) {
+                        cv.wait(lock);
                     }
 
-                    if(block.idx+1 == blockCount) {
+                    if(loadedBlocks.peek().idx == lastBlock+1) {
+                        auto block = loadedBlocks.pop();
+                        lastBlock = block.idx;
+
+                        if(func) {
+                            func(block);
+                        }
+
+                        if(block.idx+1 == blockCount) {
+                            break;
+                        }
+                    }*/
+
+                    // B) doesnt guarantee order
+                    if (blockCount == consumedBlocks) {
                         break;
                     }
-                }*/
 
-                // B) doesnt guarantee order
-                if (blockCount == consumedBlocks) {
-                    break;
+                    Block *block = nullptr;
+                    {
+                        unique_lock<mutex> lock(blocksMutex);
+                        if (loadedBlocks.size() == 0) {
+                            cv.wait(lock);
+                        }
+
+                        block = new Block(loadedBlocks.pop());
+                    }
+
+                    if (func) {
+                        func(*block);
+                    }
+
+                    consumedBlocks++;
+                    delete block;
                 }
-
-                unique_lock<mutex> lock(blocksMutex);
-                if (loadedBlocks.size() == 0) {
-                    cv.wait(lock);
-                }
-
-                auto block = loadedBlocks.pop();
-                if (func) {
-                    func(block);
-                }
-
-                consumedBlocks++;
-
-            }
-        });
+            });
+        }
 
         // start block readers
         unordered_map<string, thread> threads;
@@ -180,7 +190,7 @@ public:
             threads[host].join();
         }
 
-        consumer.join();
+        consumers.join_all();
 
         //auto seconds = ((double)(chrono::duration_cast<chrono::milliseconds>(chrono::high_resolution_clock::now() - start)).count())/1000.0;
         //cout << "Downloaded " << fileInfo->mSize/(1024.0*1024.0) << " MB with " << ((double)fileInfo->mSize/(1024.0*1024.0))/seconds << " MB/s)"<< endl;

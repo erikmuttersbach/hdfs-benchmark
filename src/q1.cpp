@@ -25,7 +25,7 @@ static void print(const char *header, double *values) {
 
 int main(int argc, char **argv) {
     initLogging();
-    if(argc != 3) {
+    if (argc != 3) {
         cout << "Usage: " << argv[0] << " NAMENODE LINEITEM-PATH" << endl;
         exit(1);
     }
@@ -41,78 +41,68 @@ int main(int argc, char **argv) {
     double results[4 * 8];
     unsigned groupIds[4] = {('A' << 8) | 'F', ('N' << 8) | 'F', ('N' << 8) | 'O', ('R' << 8) | 'F'};
 
-    auto start=std::chrono::high_resolution_clock::now();
+    auto start = std::chrono::high_resolution_clock::now();
 
     SHA256 sha;
 
-    vector<future<vector<Group>>> futures;
-    std::mutex sumsMutex, futuresMutex;
-    hdfsReader.read(argv[2], [&sha, &sumsMutex, &groupIds, &futures, &futuresMutex](Block block) {
-        auto f = async(launch::async, [&sumsMutex, &groupIds](Block block){
-            ParquetFile file(static_cast<const uint8_t *>(block.data.get()), block.fileInfo.mSize);
-            vector<Group> _groups(4);
-            for (auto &rowGroup : file.getRowGroups()) {
-                auto quantityColumn = rowGroup.getColumn(4).getReader();
-                auto extendedpriceColumn = rowGroup.getColumn(5).getReader();
-                auto discountColumn = rowGroup.getColumn(6).getReader();
-                auto taxColumn = rowGroup.getColumn(7).getReader();
-                auto returnflagColumn = rowGroup.getColumn(8).getReader();
-                auto linestatusColumn = rowGroup.getColumn(9).getReader();
-                auto dateColumn = rowGroup.getColumn(10).getReader();
+    std::mutex groupsMutex;
+    hdfsReader.read(argv[2], [&sha, &groupsMutex, &groupIds, &groups](Block block) {
+        ParquetFile file(static_cast<const uint8_t *>(block.data.get()), block.fileInfo.mSize);
+        vector<Group> _groups(4);
+        for (auto &rowGroup : file.getRowGroups()) {
+            auto quantityColumn = rowGroup.getColumn(4).getReader();
+            auto extendedpriceColumn = rowGroup.getColumn(5).getReader();
+            auto discountColumn = rowGroup.getColumn(6).getReader();
+            auto taxColumn = rowGroup.getColumn(7).getReader();
+            auto returnflagColumn = rowGroup.getColumn(8).getReader();
+            auto linestatusColumn = rowGroup.getColumn(9).getReader();
+            auto dateColumn = rowGroup.getColumn(10).getReader();
 
-                while (dateColumn.hasNext()) {
-                    assert(returnflagColumn.hasNext() && linestatusColumn.hasNext() &&
-                           extendedpriceColumn.hasNext() && discountColumn.hasNext() &&
-                           taxColumn.hasNext() && quantityColumn.hasNext());
+            while (dateColumn.hasNext()) {
+                assert(returnflagColumn.hasNext() && linestatusColumn.hasNext() &&
+                       extendedpriceColumn.hasNext() && discountColumn.hasNext() &&
+                       taxColumn.hasNext() && quantityColumn.hasNext());
 
-                    string dateStr = dateColumn.read < string > ();
-                    int a = 0, b = 0, c = 0;
-                    sscanf(reinterpret_cast<const char *>(dateStr.c_str()), "%d-%d-%d", &a, &b, &c);
-                    unsigned date = (a * 10000) + (b * 100) + c;
+                string dateStr = dateColumn.read < string > ();
+                int a = 0, b = 0, c = 0;
+                sscanf(reinterpret_cast<const char *>(dateStr.c_str()), "%d-%d-%d", &a, &b, &c);
+                unsigned date = (a * 10000) + (b * 100) + c;
 
-                    char returnflag = returnflagColumn.read < ByteArray > ().ptr[0];
-                    char linestatus = linestatusColumn.read < ByteArray > ().ptr[0];
-                    double quantity = quantityColumn.read < double > ();
-                    double extendedprice = extendedpriceColumn.read < double > ();
-                    double discount = discountColumn.read < double > ();
-                    double tax = taxColumn.read < double > ();
+                char returnflag = returnflagColumn.read < ByteArray > ().ptr[0];
+                char linestatus = linestatusColumn.read < ByteArray > ().ptr[0];
+                double quantity = quantityColumn.read < double > ();
+                double extendedprice = extendedpriceColumn.read < double > ();
+                double discount = discountColumn.read < double > ();
+                double tax = taxColumn.read < double > ();
 
-                    if (date > 19980811) {
-                        continue;
-                    }
-
-                    // TODO better code ;)
-                    int f = ((returnflag << 8) | linestatus);
-                    int groupId = -1;
-                    for(unsigned i=0; i<4; i++) {
-                        if(f == groupIds[i]) {
-                            groupId = i;
-                            break;
-                        }
-                    }
-                    assert(groupId >= 0 && groupId < 4);
-                    Group &s = _groups[groupId];
-                    double v1 = extendedprice * (1.0 - discount);
-                    double v2 = v1 * (1.0 + tax);
-                    s.sum1 += quantity;
-                    s.sum2 += extendedprice;
-                    s.sum3 += v1;
-                    s.sum4 += v2;
-                    s.sum5 += discount;
-                    s.count++;
+                if (date > 19980811) {
+                    continue;
                 }
+
+                // TODO better code ;)
+                int f = ((returnflag << 8) | linestatus);
+                int groupId = -1;
+                for (unsigned i = 0; i < 4; i++) {
+                    if (f == groupIds[i]) {
+                        groupId = i;
+                        break;
+                    }
+                }
+                assert(groupId >= 0 && groupId < 4);
+                Group &s = _groups[groupId];
+                double v1 = extendedprice * (1.0 - discount);
+                double v2 = v1 * (1.0 + tax);
+                s.sum1 += quantity;
+                s.sum2 += extendedprice;
+                s.sum3 += v1;
+                s.sum4 += v2;
+                s.sum5 += discount;
+                s.count++;
             }
+        }
 
-            return _groups;
-        }, block);
-        futuresMutex.lock();
-        futures.push_back(move(f));
-        futuresMutex.unlock();
-    });
-
-    for(auto &f : futures) {
-        vector<Group> _groups = f.get();
-        for(unsigned i=0; i<4; i++) {
+        groupsMutex.lock();
+        for (unsigned i = 0; i < 4; i++) {
             groups[i].sum1 += _groups[i].sum1;
             groups[i].sum2 += _groups[i].sum2;
             groups[i].sum3 += _groups[i].sum3;
@@ -120,7 +110,9 @@ int main(int argc, char **argv) {
             groups[i].sum5 += _groups[i].sum5;
             groups[i].count += _groups[i].count;
         }
-    }
+        groupsMutex.unlock();
+    });
+
 
     for (unsigned index = 0; index != 4; ++index) {
         double count = groups[index].count;
@@ -134,14 +126,14 @@ int main(int argc, char **argv) {
         results[8 * index + 7] = count;
     }
 
-    auto stop=std::chrono::high_resolution_clock::now();
+    auto stop = std::chrono::high_resolution_clock::now();
 
     print("A F", results + 0);
     print("N F", results + 8);
     print("N O", results + 16);
     print("R F", results + 24);
 
-    cout << "duration " << std::chrono::duration_cast<std::chrono::milliseconds>(stop-start).count() << "ms" << endl;
+    cout << "duration " << std::chrono::duration_cast<std::chrono::milliseconds>(stop - start).count() << "ms" << endl;
 
     return 0;
 }
