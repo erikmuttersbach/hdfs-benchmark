@@ -14,6 +14,8 @@
 #include <iostream>
 #include <unordered_map>
 
+#include <boost/log/trivial.hpp>
+
 #include <string.h>
 #include <hdfs/hdfs.h>
 
@@ -31,11 +33,12 @@ public:
     }
 
     ~HdfsReader() {
-        if(hdfsBuilder) {
+        if (hdfsBuilder) {
             hdfsFreeBuilder(hdfsBuilder);
         }
-
-        // TODO clean up
+        if (this->fs) {
+            hdfsDisconnect(this->fs);
+        }
     }
 
     void connect() {
@@ -49,7 +52,7 @@ public:
         EXPECT_NONZERO_EXC(files, "hdfsListDirectory")
 
         vector<hdfsFileInfo> filesVector;
-        for(int i=0; i<entries; i++) {
+        for (int i = 0; i < entries; i++) {
             filesVector.push_back(files[i]);
         }
 
@@ -57,12 +60,12 @@ public:
         return filesVector;
     }
 
-    void listDirectory(string path, function<void(hdfsFileInfo&)> func) {
+    void listDirectory(string path, function<void(hdfsFileInfo &)> func) {
         int entries;
         hdfsFileInfo *files = hdfsListDirectory(this->fs, path.c_str(), &entries);
         EXPECT_NONZERO_EXC(files, "hdfsListDirectory")
 
-        for(unsigned i=0; i<entries; i++) {
+        for (unsigned i = 0; i < entries; i++) {
             func(files[i]);
         }
     }
@@ -80,19 +83,14 @@ public:
      *
      * TODO can only be called if A) connected, B) another read(...) is not in progress
      */
-    void read(string path, function<void(Block&)> func = [](Block& b){}) {
-        // Clean old run
-        // TODO also in destructor
-        this->pendingBlocks.clear();
-        this->loadedBlocks.clear();
-        this->blocks.clear();
-        this->hosts.clear();
+    void read(string path, function<void(Block &)> func = [](Block &b) { }) {
+        this->reset();
 
         // Check if path is pointing at a file or a directory
         vector<string> paths;
-        if(this->isDirectory(path)) {
+        if (this->isDirectory(path)) {
             this->listDirectory(path, [&paths](hdfsFileInfo &fileInfo) {
-                if(fileInfo.mKind == tObjectKind::kObjectKindFile) {
+                if (fileInfo.mKind == tObjectKind::kObjectKindFile) {
                     paths.push_back(fileInfo.mName);
                 }
             });
@@ -102,18 +100,16 @@ public:
 
         // Determine the set of hosts and the hosts of all files
         // to build up `pendingBlocks`
-        for(auto &path : paths) {
+        for (auto &path : paths) {
             auto fileInfo = hdfsGetPathInfo(fs, path.c_str());
             EXPECT_NONZERO_EXC(fileInfo, "hdfsGetPathInfo")
-
-            cout << fileInfo->mName << endl;
 
             char ***fileBlocksHosts = hdfsGetHosts(fs, path.c_str(), 0, fileInfo->mSize);
             EXPECT_NONZERO_EXC(fileBlocksHosts, "hdfsGetHosts")
 
             for (size_t blockIdx = 0; fileBlocksHosts[blockIdx]; blockIdx++) {
-                if(blockIdx > 0) {
-                    throw runtime_error("Multi-block files are not supported ("+path+")");
+                if (blockIdx > 0) {
+                    throw runtime_error("Multi-block files are not supported (" + path + ")");
                 }
 
                 set<string> blockHosts;
@@ -123,41 +119,27 @@ public:
                     hosts.insert(host);
                 }
 
-                pendingBlocks.push(Block(fileInfo->mName, blockIdx, blockHosts));
+                pendingBlocks.push(Block(*fileInfo, blockIdx, blockHosts));
             }
         }
 
         size_t blockCount = pendingBlocks.size();
 
-        cout << "PENDING BLOCKS: " << endl;
-        for(Block &block : pendingBlocks) {
-            cout << block.path << endl;
-        }
-
-        /*
-
-        // Allocate memory for the whole file
-        if(this->buffer) {
-            free(this->buffer);
-        }
-        this->buffer = static_cast<char*>(malloc(this->fileInfo->mSize));
-        EXPECT_NONZERO_EXC(this->buffer, "malloc")
-
-        // block consumer
+        // block consumers
         thread consumer([&]() {
             uint32_t lastBlock = -1;
-            while(true) {
-                unique_lock<mutex> lock(blocksMutex);
+            unsigned consumedBlocks = 0;
+            while (true) {
+                // A) old impl. guarantees blocks arrive in order
+                /*unique_lock<mutex> lock(blocksMutex);
                 if(loadedBlocks.size() == 0 || loadedBlocks.peek().idx != lastBlock+1) {
                     cv.wait(lock);
                 }
 
-                //cout << "Peek: " << loadedBlocks.peek().idx << endl;
                 if(loadedBlocks.peek().idx == lastBlock+1) {
                     auto block = loadedBlocks.pop();
                     lastBlock = block.idx;
 
-                    //this->blocks[block.idx] = block;
                     if(func) {
                         func(block);
                     }
@@ -165,7 +147,24 @@ public:
                     if(block.idx+1 == blockCount) {
                         break;
                     }
+                }*/
+
+                // B) doesnt guarantee order
+                if (blockCount == consumedBlocks) {
+                    break;
                 }
+
+                unique_lock<mutex> lock(blocksMutex);
+                if (loadedBlocks.size() == 0) {
+                    cv.wait(lock);
+                }
+
+                auto block = loadedBlocks.pop();
+                if (func) {
+                    func(block);
+                }
+
+                consumedBlocks++;
 
             }
         });
@@ -173,7 +172,7 @@ public:
         // start block readers
         unordered_map<string, thread> threads;
         for (auto &host : hosts) {
-            threads[host] = thread(&HdfsReader::reader, this, fileInfo, host);
+            threads[host] = thread(&HdfsReader::reader, this, host);
         }
 
         // Wait for all threads to finish
@@ -185,22 +184,14 @@ public:
 
         //auto seconds = ((double)(chrono::duration_cast<chrono::milliseconds>(chrono::high_resolution_clock::now() - start)).count())/1000.0;
         //cout << "Downloaded " << fileInfo->mSize/(1024.0*1024.0) << " MB with " << ((double)fileInfo->mSize/(1024.0*1024.0))/seconds << " MB/s)"<< endl;
-
-        //TODO free
-         */
     }
 
-    /*tOffset getFileSize() {
-        return this->fileInfo->mSize;
+    void reset() {
+        this->pendingBlocks.clear();
+        this->loadedBlocks.clear();
+        this->blocks.clear();
+        this->hosts.clear();
     }
-
-    tOffset getBlockSize() {
-        return this->fileInfo->mBlockSize;
-    }*/
-
-    /*void *getBuffer() {
-        return this->buffer;
-    }*/
 
     void setSocket(string socket) {
         this->socket = socket;
@@ -223,13 +214,14 @@ private:
         hdfsBuilderSetNameNode(hdfsBuilder, this->namenode.c_str());
         hdfsBuilderSetNameNodePort(hdfsBuilder, this->namenodePort);
 
-        if(!this->socket.empty()) {
-			hdfsBuilderConfSetStr(hdfsBuilder, "dfs.client.read.shortcircuit", "true");
-        	hdfsBuilderConfSetStr(hdfsBuilder, "dfs.client.read.shortcircuit.skip.checksum", this->skipChecksums ? "true" : "false");
+        if (!this->socket.empty()) {
+            hdfsBuilderConfSetStr(hdfsBuilder, "dfs.client.read.shortcircuit", "true");
+            hdfsBuilderConfSetStr(hdfsBuilder, "dfs.client.read.shortcircuit.skip.checksum",
+                                  this->skipChecksums ? "true" : "false");
             hdfsBuilderConfSetStr(hdfsBuilder, "dfs.domain.socket.path", this->socket.c_str());
         } else {
-			hdfsBuilderConfSetStr(hdfsBuilder, "dfs.client.read.shortcircuit", "false");
-		}
+            hdfsBuilderConfSetStr(hdfsBuilder, "dfs.client.read.shortcircuit", "false");
+        }
 
         hdfsFS fs = hdfsBuilderConnect(hdfsBuilder);
         EXPECT_NONZERO_EXC(fs, "hdfsBuilderConnect")
@@ -237,76 +229,90 @@ private:
         return fs;
     }
 
-    /*void reader(hdfsFileInfo *fileInfo, string host) {
-        cout << "Thread " << host << " starting" << endl;
+    void reader(string host) {
+        BOOST_LOG_TRIVIAL(debug) << "Thread-" << host << " starting";
 
         struct hdfsBuilder *hdfsBuilder = hdfsNewBuilder();
         hdfsFS fs = connect(hdfsBuilder);
 
-        hdfsFile file = hdfsOpenFile2(fs, host.c_str(), this->path.c_str(), O_RDONLY, this->bufferSize, 0, 0);
-        EXPECT_NONZERO_EXC(file, "hdfsOpenFile2")
+        //hdfsFile file = hdfsOpenFile2(fs, host.c_str(), this->path.c_str(), O_RDONLY, this->bufferSize, 0, 0);
+        //EXPECT_NONZERO_EXC(file, "hdfsOpenFile2")
 
-        while(true) {
-            uint32_t downloadBlockIdx = -1;
+        while (true) {
+            shared_ptr<Block> downloadBlock = nullptr;
             {
                 unique_lock<mutex> lock(blocksMutex);
 
                 uint count = 0;
-                for(auto& block : loadedBlocks) {
-                    if(block.host.compare(host) == 0) {
+                for (auto &block : loadedBlocks) {
+                    if (block.host.compare(host) == 0) {
                         count++;
                     }
                 }
 
-                if(count >= 3) {
+                if (count >= 3) {
                     continue;
                 }
 
-                for(auto it = pendingBlocks.begin(); it != pendingBlocks.end(); it++) {
-                    if((*it).hosts.count(host) > 0) {
-                        downloadBlockIdx = (*it).idx;
+                for (auto it = pendingBlocks.begin(); it != pendingBlocks.end(); it++) {
+                    if ((*it).hosts.count(host) > 0) {
+                        downloadBlock = shared_ptr<Block>(new Block(*it));
                         pendingBlocks.remove(it);
                         break;
                     }
                 }
 
-                if(downloadBlockIdx == -1) {
-                    cout << "Thread-" << host << " did not find job (" << pendingBlocks.size() << " pending)" << endl;
+                if (downloadBlock == NULL) {
+                    BOOST_LOG_TRIVIAL(debug) << "Thread-" << host << " did not find job (" << pendingBlocks.size() << " pending)";
                     break;
                 }
 
             }
 
             // Download the block `downloadBlockIdx`
-            cout << "Thread-" << host << " downloading " << downloadBlockIdx << endl;
+            BOOST_LOG_TRIVIAL(debug) << "Thread-" << host << " downloading " << downloadBlock->fileInfo.mName;
 
             auto start = chrono::high_resolution_clock::now();
 
-            tOffset offset = fileInfo->mBlockSize*((uint64_t)downloadBlockIdx);
-            int r = hdfsSeek(fs, file, offset);
-            EXPECT_NONNEGATIVE(r, "hdfsSeek")
+            hdfsFile file = hdfsOpenFile2(fs, host.c_str(), downloadBlock->fileInfo.mName, O_RDONLY, this->bufferSize,
+                                          0, 0);
+            EXPECT_NONZERO_EXC(file, "hdfsOpenFile2")
+
+            downloadBlock->host = host;
+            downloadBlock->data = shared_ptr<void>(malloc(downloadBlock->fileInfo.mSize), free);
+
+            //tOffset offset = downloadBlock->fileInfo.mBlockSize*((uint64_t)downloadBlock->idx);
+            //int r = hdfsSeek(fs, file, offset);
+            //EXPECT_NONNEGATIVE(r, "hdfsSeek")
 
             tSize read = 0, totalRead = 0;
             do {
-                read = hdfsRead(fs, file, this->buffer+offset+totalRead, this->fileInfo->mBlockSize);
+                read = hdfsRead(fs, file, static_cast<char *>(downloadBlock->data.get()) + totalRead,
+                                downloadBlock->fileInfo.mSize);
                 EXPECT_NONNEGATIVE(read, "hdfsRead")
 
                 totalRead += read;
-            } while (read > 0 && totalRead < fileInfo->mBlockSize);
+            } while (read > 0 && totalRead < downloadBlock->fileInfo.mSize);
 
-            auto seconds = ((double)(chrono::duration_cast<chrono::milliseconds>(chrono::high_resolution_clock::now() - start)).count())/1000.0;
-            cout << "Thread-" << host << " downloaded " << downloadBlockIdx << " (" << totalRead/(1024.0*1024.0) << " MB with " << ((double)totalRead/(1024.0*1024.0))/seconds << " MB/s)"<< endl;
+            assert(totalRead == downloadBlock->fileInfo.mSize);
 
+            auto seconds = ((double) (chrono::duration_cast<chrono::milliseconds>(
+                    chrono::high_resolution_clock::now() - start)).count()) / 1000.0;
+            BOOST_LOG_TRIVIAL(debug) << "Thread-" << host << " downloaded " << downloadBlock->fileInfo.mName << " (" <<
+                                     totalRead / (1024.0 * 1024.0) << " MB with " <<
+                                     ((double) totalRead / (1024.0 * 1024.0)) / seconds << " MB/s)";
+            // TODO Waiting for this takes ages ... measure
             {
                 unique_lock<mutex> lock(blocksMutex);
-                loadedBlocks.push(Block(downloadBlockIdx, host, buffer, totalRead));
+                loadedBlocks.push(Block(*downloadBlock.get()));
                 cv.notify_one();
             }
+
+            hdfsCloseFile(fs, file);
         }
 
-        hdfsCloseFile(fs, file);
-        cout << "Thread " << host << " finished" << endl;
-    }*/
+        BOOST_LOG_TRIVIAL(debug) << "Thread-" << host << " finished";
+    }
 
 private:
     //string path;

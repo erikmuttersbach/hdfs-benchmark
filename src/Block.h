@@ -7,6 +7,9 @@
 
 #include <set>
 #include <string>
+#include <memory>
+
+#include <stdlib.h>
 
 #include <hdfs/hdfs.h>
 
@@ -17,23 +20,20 @@ using namespace std;
  */
 class Block {
 public:
-    Block(string path, uint32_t idx, string host, void *data, size_t len) :
-            idx(idx), host(host), data(data), len(len), path(path) {
-    }
-
-    Block(string path, uint32_t idx, set<string> hosts) :
-            idx(idx), hosts(hosts), path(path) {
+    Block(hdfsFileInfo &fileInfo, uint32_t idx, set<string> hosts) :
+            idx(idx), hosts(hosts), fileInfo(fileInfo) {
+        this->fileInfo.mName = static_cast<char *>(malloc(strlen(fileInfo.mName)+1));
+        strcpy(this->fileInfo.mName, fileInfo.mName);
     }
 
     ~Block() {
 
     }
 
-    string path;
+    hdfsFileInfo fileInfo;
     set<string> hosts;
     uint32_t idx;
-    void *data;
-    size_t len;
+    shared_ptr<void> data;
     string host;
 };
 

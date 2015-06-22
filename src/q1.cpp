@@ -11,6 +11,8 @@
 #include "HdfsReader.h"
 #include "ParquetFile.h"
 //#include "Table.h"
+#include "log.h"
+#include "sha256.h"
 
 static void print(const char *header, double *values) {
     cerr << header;
@@ -19,10 +21,12 @@ static void print(const char *header, double *values) {
 }
 
 int main(int argc, char **argv) {
+    initLogging();
     if(argc != 3) {
         cout << "Usage: " << argv[0] << " NAMENODE LINEITEM-PATH" << endl;
         exit(1);
     }
+
     HdfsReader hdfsReader(argv[1]);
     hdfsReader.connect();
 
@@ -35,9 +39,11 @@ int main(int argc, char **argv) {
 
     auto start=std::chrono::high_resolution_clock::now();
 
+    SHA256 sha;
+
     //Table part(hdfsReader, vector<string>{argv[2]});
     //part.printSchema();
-    hdfsReader.read(argv[2], [&sums, &count](Block &parquetFile) {
+    hdfsReader.read(argv[2], [&sha, &sums, &count](Block &block) {
         // TODO Should be async and on 4 queues (with maybe more and then merge ... )
         /*for (auto &rowGroup : parquetFile.getRowGroups()) {
             auto quantityColumn = rowGroup.getColumn(4).getReader();
