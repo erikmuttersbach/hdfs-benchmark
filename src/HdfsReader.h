@@ -136,10 +136,9 @@ public:
         boost::atomic<unsigned> consumedBlocks(0);
 
         // block consumers
-        bool stopConsumers = false;
         boost::thread_group consumers;
         for(unsigned int i=0; i<consumerCount; i++) {
-            consumers.create_thread([i, &blockCount, &consumedBlocks, this, &func, &stopConsumers]() {
+            consumers.create_thread([i, &blockCount, &consumedBlocks, this, &func]() {
                 //uint32_t lastBlock = -1;
 
                 while (true) {
@@ -163,7 +162,7 @@ public:
                     }*/
 
                     // B) doesnt guarantee order
-                    if (blockCount == consumedBlocks || stopConsumers) {
+                    if (blockCount == consumedBlocks) {
                         break;
                     }
 
@@ -211,7 +210,6 @@ public:
 
         {
             unique_lock<mutex> lock(blocksMutex);
-            stopConsumers = true;
             cv.notify_all();
         }
 
