@@ -108,6 +108,9 @@ namespace {
     {
         uint64_t pos = hashFunction(key) & mask;
         while (hashTable[pos] != 0) {
+            if(hashTable[pos]->key == key) {
+                return hashTable[pos];
+            }
             pos = (pos + 1) & mask;
         }
         Entry *entry = entries + (fill++);
@@ -243,10 +246,9 @@ int main(int argc, char **argv) {
                 _l_shipdate.push_back(shipdate);
 
                 partkeyIndexMutex.lock();
-                auto entry = l_partkeyIndex.lookup(partkey);
-                if(entry == 0) {
+
                     auto entry = l_partkeyIndex.insert(partkey);
-                }
+                
                 entry->value.push_back(HL(idx1, l_shipdate.size()-1));
                 partkeyIndexMutex.unlock();
             }
