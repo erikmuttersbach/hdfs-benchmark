@@ -192,16 +192,16 @@ int main(int argc, char **argv) {
     auto start = std::chrono::high_resolution_clock::now();
 
     //
-    HashIndexLinearProbing<uint64_t> l_partkeyIndex(80000);
+    HashIndexLinearProbing<vector<uint64_t>> l_partkeyIndex(80000);
 
     vector<vector<double>> l_extendedprice, l_discount;
     vector<vector<unsigned>> l_shipdate;
 
     mutex lineitemMutex, partkeyIndexMutex;
 
+    // Read lineitem and build up the hash index
     hdfsReader.read(argv[2], [&](Block block) {
         ParquetFile file(static_cast<const uint8_t *>(block.data.get()), block.fileInfo.mSize);
-        //file.printSchema();
 
         lineitemMutex.lock();
         l_extendedprice.push_back(vector<double>());
@@ -243,14 +243,20 @@ int main(int argc, char **argv) {
                 _l_shipdate.push_back(shipdate);
 
                 partkeyIndexMutex.lock();
-                auto entry = l_partkeyIndex.insert(partkey);
-                entry->value = HL(idx1, l_shipdate.size()-1);
+                auto entry = l_partkeyIndex.lookup(partkey);
+                if(entry == 0) {
+                    auto entry = l_partkeyIndex.insert(partkey);
+                }
+                entry->value.push_back(HL(idx1, l_shipdate.size()-1));
                 partkeyIndexMutex.unlock();
             }
         }
-        //auto entry=p_partkeyIndex.insert(p_partkey[tid]);
-        //entry->value=tid;
     }, thread::hardware_concurrency());
+
+    // Read part
+    hdfsReader.read(argv[2], [&](Block block) {
+        ParquetFile file(static_cast<const uint8_t *>(block.data.get()), block.fileInfo.mSize);
+    });
 
     auto stop = std::chrono::high_resolution_clock::now();
     cout << "duration " << std::chrono::duration_cast<std::chrono::milliseconds>(stop - start).count() << "ms" << endl;
