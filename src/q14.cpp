@@ -183,6 +183,8 @@ static void query(const vector<P_type> &p_type, const vector<unsigned> &l_partke
 #define H(X)        (X >> 32)
 #define L(X)        (X & 0x00000000FFFFFFFF)
 
+// q14, assumes statistics are known
+
 int main(int argc, char **argv) {
     initLogging();
     if (argc != 4) {
@@ -195,8 +197,9 @@ int main(int argc, char **argv) {
 
     auto start = std::chrono::high_resolution_clock::now();
 
-    //
-    HashIndexLinearProbing<vector<uint64_t>> l_partkeyIndex(80000);
+    // as determined by
+    // SELECT COUNT(*) as count1, 100*year(l_shipdate)+month(l_shipdate) as `year_month` FROM lineitem GROUP BY year_month ORDER BY count1 DESC;
+    HashIndexLinearProbing<vector<uint64_t>> l_partkeyIndex(7738727);
 
     vector<vector<double>> l_extendedprice, l_discount;
     vector<vector<unsigned>> l_shipdate;
