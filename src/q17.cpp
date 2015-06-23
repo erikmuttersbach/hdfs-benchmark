@@ -1,84 +1,142 @@
 #include <iostream>
-#include <string>
-#include <functional>
-
-#include <parquet/parquet.h>
-#include <vector>
-#include <iomanip>
-#include <hdfs/hdfs.h>
 
 #include "HdfsReader.h"
-#include "Table.h"
+#include "ParquetFile.h"
+#include "log.h"
 
-#define CONCAT(v1, v2) v1.insert(v1.end(), v2.begin(), v2.end());
+struct P_brand {
+    char data[10];
+};
+struct P_container {
+    char data[10];
+};
+
+struct LineitemMatch {
+    int32_t partkey;
+    double quantity;
+    double extendedprice;
+};
 
 int main(int argc, char **argv) {
-    HdfsReader hdfsReader(argv[1]);
+    initLogging();
+    if (argc != 5) {
+        cout << "Usage: " << argv[0] << " #THREADS NAMENODE LINEITEM-PATH PART-PATH" << endl;
+        exit(1);
+    }
+
+    const unsigned threadCount = atoi(argv[1]);
+
+    HdfsReader hdfsReader(argv[2]);
     hdfsReader.connect();
 
+    auto start = std::chrono::high_resolution_clock::now();
+
     // Reading part
-    vector<P_type> p_type;
-    vector<unsigned> p_partkey;
+    static const char *brand = "Brand#23";
+    static const char *container = "MED BOX\0";
+    const uint64_t brandPattern1 = *reinterpret_cast<const uint64_t *>(brand);
+    const uint16_t brandPattern2 = 0;
+    const uint64_t containerPattern1 = *reinterpret_cast<const uint64_t *>(container);
+    const uint16_t containerPattern2 = 0;
 
-    Table part(hdfsReader, vector<string>{"/tpch1_parquet.db/part"});
-    part.printSchema();
-    part.read([&p_partkey, &p_type](ParquetFile &parquetFile) {
-        vector<unsigned> _p_partkey = parquetFile.readColumn<int32_t, unsigned>(0, [](int32_t v) {
-            return static_cast<unsigned>(v);
-        });
-        vector<P_type> _p_type = parquetFile.readColumn<ByteArray, P_type>(4, [](ByteArray v) {
-            P_type p;
-            memset(p.data, 0, sizeof(p.data));
-            memcpy(p.data, v.ptr, MIN(v.len, 25));
-            return p;
-        });
+    // We assume we know from table stats that the largest part key is 20000000,
+    // instead of using a hash index we use a part
+    vector<bool> partMatches;
+    partMatches.resize(20000000);
 
-        p_partkey.insert(p_partkey.end(), _p_partkey.begin(), _p_partkey.end());
-        p_type.insert(p_type.end(), _p_type.begin(), _p_type.end());
-    });
+    hdfsReader.read(argv[4], [&](vector<string> &paths) {
 
-    // Reading lineitem
-    vector<double> l_extendedprice, l_discount;
-    vector<unsigned> l_shipdate, l_partkey;
+    }, [&](Block block) {
+        ParquetFile file(static_cast<const uint8_t *>(block.data.get()), block.fileInfo.mSize);
+        for (auto &rowGroup : file.getRowGroups()) {
+            auto partkeyColumn = rowGroup.getColumn(0).getReader();
+            auto brandColumn = rowGroup.getColumn(3).getReader();
+            auto containerColumn = rowGroup.getColumn(6).getReader();
 
-    Table lineitem(hdfsReader, vector<string>{"/tpch1_parquet.db/lineitem"});
-    lineitem.printSchema();
-    lineitem.read([&l_partkey, &l_extendedprice, &l_discount, &l_shipdate](ParquetFile &parquetFile) {
-        auto _l_partkey = parquetFile.readColumn<int32_t, unsigned>(1, [](int32_t v) {
-            return static_cast<unsigned>(v);
-        });
-        auto _l_extendedprice = parquetFile.readColumn<double>(5);
-        auto _l_discount = parquetFile.readColumn<double>(6);
-        auto _l_shipdate = parquetFile.readColumn<string, unsigned>(10, [](string v) {
-            int a = 0, b = 0, c = 0;
-            sscanf(v.data(), "%d-%d-%d", &a, &b, &c);
-            return (a * 10000) + (b * 100) + c;
-        });
+            P_container container;
+            P_brand brand;
 
-        CONCAT(l_partkey, _l_partkey)
-        CONCAT(l_extendedprice, _l_extendedprice)
-        CONCAT(l_discount, _l_discount)
-        CONCAT(l_shipdate, _l_shipdate)
-    });
+            while (partkeyColumn.hasNext()) {
+                assert(brandColumn.hasNext() && containerColumn.hasNext());
 
-    cout << "constructing primary key index on part..." << endl;
-    HashIndexLinearProbing<uint64_t> p_partkeyIndex(p_partkey.size());
-    for (unsigned long tid = 0; tid != p_partkey.size(); ++tid) {
-        auto entry = p_partkeyIndex.insert(p_partkey[tid]);
-        entry->value = tid;
-    }
-    for (unsigned index = 0; index != 5; ++index) {
-        cerr << "executing query" << endl;
-        {
-            auto start = std::chrono::high_resolution_clock::now();
-            double result = 0;
-            query(p_type, l_partkey, l_extendedprice, l_discount, l_shipdate, p_partkeyIndex, result);
-            auto stop = std::chrono::high_resolution_clock::now();
-            cerr << fixed << setprecision(2) << result << endl;
-            cerr << "duration " << std::chrono::duration_cast<std::chrono::milliseconds>(stop - start).count() <<
-            "ms" << endl;
+                auto partkey = partkeyColumn.read<int32_t>();
+                auto brandByteArray = brandColumn.read<ByteArray>();
+                auto containerByteArray = containerColumn.read<ByteArray>();
+
+                memset(brand.data, 0, 10);
+                memcpy(brand.data, brandByteArray.ptr, MIN(brandByteArray.len, 10));
+
+                memset(container.data, 0, 10);
+                memcpy(container.data, containerByteArray.ptr, MIN(containerByteArray.len, 10));
+
+                uint64_t b1 = *reinterpret_cast<const uint64_t *>(brand.data);
+                uint16_t b2 = *reinterpret_cast<const uint16_t *>(brand.data + 8);
+                uint64_t c1 = *reinterpret_cast<const uint64_t *>(container.data);
+                uint64_t c2 = *reinterpret_cast<const uint16_t *>(container.data + 8);
+                if ((b1 == brandPattern1) && (b2 == brandPattern2) && (c1 == containerPattern1) &&
+                    (c2 == containerPattern2)) {
+                    partMatches[partkey] = true;
+                }
+            }
         }
+    }, 4);
+
+    // Read lineitem
+    vector<LineitemMatch> matched;
+    mutex matchedMutex; // TODO optimizable
+    hdfsReader.read(argv[3], [&](vector<string> &paths) {
+
+    }, [&](Block block) {
+        ParquetFile file(static_cast<const uint8_t *>(block.data.get()), block.fileInfo.mSize);
+        for (auto &rowGroup : file.getRowGroups()) {
+            auto partkeyColumn = rowGroup.getColumn(1).getReader();
+            auto quantityColumn = rowGroup.getColumn(4).getReader();
+            auto extendedpriceColumn = rowGroup.getColumn(5).getReader();
+
+            while (partkeyColumn.hasNext()) {
+                assert(quantityColumn.hasNext() && extendedpriceColumn.hasNext());
+
+                auto partkey = partkeyColumn.read<int32_t>();
+                auto quantity = quantityColumn.read<double>();
+                auto extendedprice = extendedpriceColumn.read<double>();
+
+                if (partMatches[partkey]) {
+                    matchedMutex.lock();
+                    matched.push_back({partkey, quantity, extendedprice});
+                    matchedMutex.unlock();
+                }
+            }
+        }
+    });
+
+    sort(matched.begin(), matched.end(), [](const LineitemMatch &a, const LineitemMatch &b) {
+        return a.partkey < b.partkey;
+    });
+
+    double sum = 0;
+    for (unsigned index = 0, limit = matched.size(); index != limit;) {
+        unsigned partkey = matched[index].partkey;
+        unsigned end = index;
+        double avgQuantity = 0;
+        while (true) {
+            if ((end == limit) || (matched[end].partkey != partkey)) break;
+            avgQuantity += matched[end].quantity;
+            ++end;
+        }
+        avgQuantity = 0.2 * avgQuantity / (end - index);
+        for (; index != end; ++index) {
+            if (matched[index].quantity < avgQuantity)
+                sum += matched[index].extendedprice;
+        }
+
+        index = end;
     }
+
+    double result = sum / 7.0;
+
+    auto stop = std::chrono::high_resolution_clock::now();
+    cout << result << endl;
+    cout << "duration " << std::chrono::duration_cast<std::chrono::milliseconds>(stop - start).count() << "ms" << endl;
 
     return 0;
 }

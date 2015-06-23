@@ -215,7 +215,6 @@ int main(int argc, char **argv) {
     }, threadCount);
 
     // Read part
-    // TODO parallelize
     static const char *promo = "PROMO";
     uint32_t promoPattern1 = *reinterpret_cast<const uint32_t *>(promo);
     uint8_t promoPattern2 = *reinterpret_cast<const uint8_t *>(promo + 4);
@@ -223,7 +222,6 @@ int main(int argc, char **argv) {
     vector<double> dividend, divisor;
     boost::atomic<unsigned> idxCounter(0);
 
-    auto start2 = std::chrono::high_resolution_clock::now();
     hdfsReader.read(argv[4], [&](vector<string> &paths) {
         dividend.resize(paths.size());
         divisor.resize(paths.size());
@@ -274,7 +272,6 @@ int main(int argc, char **argv) {
     double result = 100 * (dividendSum / divisorSum);
 
     auto stop = std::chrono::high_resolution_clock::now();
-    auto stop2 = std::chrono::high_resolution_clock::now();
 
     cout << result << endl;
 
