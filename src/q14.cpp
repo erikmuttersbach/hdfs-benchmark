@@ -279,7 +279,7 @@ int main(int argc, char **argv) {
     cout << result << endl;
 
     cout << "duration " << std::chrono::duration_cast<std::chrono::milliseconds>(stop - start).count() << "ms" << endl;
-    cout << "duration " << std::chrono::duration_cast<std::chrono::milliseconds>(stop2 - start2).count() << "ms" <<
+    //cout << "duration " << std::chrono::duration_cast<std::chrono::milliseconds>(stop2 - start2).count() << "ms" <<
     endl;
 
     return 0;
