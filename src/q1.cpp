@@ -51,7 +51,6 @@ int main(int argc, char **argv) {
 
         unsigned idx = idxCounter++;
         _groups[idx].resize(4);
-        cout << "Resizing _groups["<<idx<<"]" << endl;
 
         for (auto &rowGroup : file.getRowGroups()) {
             auto quantityColumn = rowGroup.getColumn(4).getReader();
@@ -103,17 +102,6 @@ int main(int argc, char **argv) {
                 s.count++;
             }
         }
-
-        /*groupsMutex.lock();
-        for (unsigned i = 0; i < 4; i++) {
-            groups[i].sum1 += _groups[i].sum1;
-            groups[i].sum2 += _groups[i].sum2;
-            groups[i].sum3 += _groups[i].sum3;
-            groups[i].sum4 += _groups[i].sum4;
-            groups[i].sum5 += _groups[i].sum5;
-            groups[i].count += _groups[i].count;
-        }
-        groupsMutex.unlock();*/
     }, threadCount);
 
     for(unsigned x=0; x<_groups.size(); x++) {
