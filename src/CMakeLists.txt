@@ -1,5 +1,6 @@
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 set(CMAKE_CXX_FLAGS_RELEASE "-g -O3 -march=native -msse -msse2")
+set(CMAKE_CXX_FLAGS_DEBUG "-g -O0 -fno-inline-functions")
 set(CMAKE_C_FLAGS_RELEASE "-g -O3 -march=native -msse -msse2")
 
 set(SOURCE_FILES Block.cpp Compare.cpp ParquetFile.cpp ColumnChunk.cpp sha256.cpp RowGroup.cpp)

@@ -32,20 +32,26 @@ int main(int argc, char **argv) {
         double sum1 = 0, sum2 = 0, sum3 = 0, sum4 = 0, sum5 = 0, count = 0;
     };
     Group groups[4];
-    memset(groups, 4, sizeof(Group));
+    //memset(groups, 0, sizeof(Group)*4);
     double results[4 * 8];
     unsigned groupIds[4] = {('A' << 8) | 'F', ('N' << 8) | 'F', ('N' << 8) | 'O', ('R' << 8) | 'F'};
     std::mutex groupsMutex;
 
     auto start = std::chrono::high_resolution_clock::now();
 
+    vector<vector<Group>> _groups;
+    boost::atomic<unsigned> idxCounter(0);
+
     // Start Reading the directory of parquet files, process the files as
     // they are available
     hdfsReader.read(argv[3], [&](vector<string> &paths){
-
+        _groups.resize(paths.size());
     },[&](Block block) {
         ParquetFile file(static_cast<const uint8_t *>(block.data.get()), block.fileInfo.mSize);
-        vector<Group> _groups(4);
+
+        unsigned idx = idxCounter++;
+        _groups[idx].resize(4);
+
         for (auto &rowGroup : file.getRowGroups()) {
             auto quantityColumn = rowGroup.getColumn(4).getReader();
             auto extendedpriceColumn = rowGroup.getColumn(5).getReader();
@@ -85,7 +91,7 @@ int main(int argc, char **argv) {
                     }
                 }
                 assert(groupId >= 0 && groupId < 4);
-                Group &s = _groups[groupId];
+                Group &s = _groups[idx][groupId];
                 double v1 = extendedprice * (1.0 - discount);
                 double v2 = v1 * (1.0 + tax);
                 s.sum1 += quantity;
@@ -96,18 +102,18 @@ int main(int argc, char **argv) {
                 s.count++;
             }
         }
-
-        groupsMutex.lock();
-        for (unsigned i = 0; i < 4; i++) {
-            groups[i].sum1 += _groups[i].sum1;
-            groups[i].sum2 += _groups[i].sum2;
-            groups[i].sum3 += _groups[i].sum3;
-            groups[i].sum4 += _groups[i].sum4;
-            groups[i].sum5 += _groups[i].sum5;
-            groups[i].count += _groups[i].count;
-        }
-        groupsMutex.unlock();
     }, threadCount);
+
+    for(unsigned x=0; x<_groups.size(); x++) {
+        for (unsigned i = 0; i < 4; i++) {
+            groups[i].sum1 += _groups[x][i].sum1;
+            groups[i].sum2 += _groups[x][i].sum2;
+            groups[i].sum3 += _groups[x][i].sum3;
+            groups[i].sum4 += _groups[x][i].sum4;
+            groups[i].sum5 += _groups[x][i].sum5;
+            groups[i].count += _groups[x][i].count;
+        }
+    }
 
     for (unsigned index = 0; index != 4; ++index) {
         double count = groups[index].count;
