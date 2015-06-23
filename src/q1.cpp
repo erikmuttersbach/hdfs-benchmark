@@ -39,13 +39,19 @@ int main(int argc, char **argv) {
 
     auto start = std::chrono::high_resolution_clock::now();
 
+    vector<vector<Group>> _groups;
+    boost::atomic<unsigned> idxCounter(0);
+
     // Start Reading the directory of parquet files, process the files as
     // they are available
     hdfsReader.read(argv[3], [&](vector<string> &paths){
-
+        _groups.resize(paths.size());
     },[&](Block block) {
         ParquetFile file(static_cast<const uint8_t *>(block.data.get()), block.fileInfo.mSize);
-        vector<Group> _groups(4);
+
+        unsigned idx = idxCounter++;
+        _groups[idx].resize(file.getFileMetaData()->num_rows);
+
         for (auto &rowGroup : file.getRowGroups()) {
             auto quantityColumn = rowGroup.getColumn(4).getReader();
             auto extendedpriceColumn = rowGroup.getColumn(5).getReader();
@@ -85,7 +91,7 @@ int main(int argc, char **argv) {
                     }
                 }
                 assert(groupId >= 0 && groupId < 4);
-                Group &s = _groups[groupId];
+                Group &s = _groups[idx][groupId];
                 double v1 = extendedprice * (1.0 - discount);
                 double v2 = v1 * (1.0 + tax);
                 s.sum1 += quantity;
@@ -97,7 +103,7 @@ int main(int argc, char **argv) {
             }
         }
 
-        groupsMutex.lock();
+        /*groupsMutex.lock();
         for (unsigned i = 0; i < 4; i++) {
             groups[i].sum1 += _groups[i].sum1;
             groups[i].sum2 += _groups[i].sum2;
@@ -106,8 +112,19 @@ int main(int argc, char **argv) {
             groups[i].sum5 += _groups[i].sum5;
             groups[i].count += _groups[i].count;
         }
-        groupsMutex.unlock();
+        groupsMutex.unlock();*/
     }, threadCount);
+
+    for(vector<Group> &g : _groups) {
+        for (unsigned i = 0; i < 4; i++) {
+            groups[i].sum1 += g[i].sum1;
+            groups[i].sum2 += g[i].sum2;
+            groups[i].sum3 += g[i].sum3;
+            groups[i].sum4 += g[i].sum4;
+            groups[i].sum5 += g[i].sum5;
+            groups[i].count += g[i].count;
+        }
+    }
 
     for (unsigned index = 0; index != 4; ++index) {
         double count = groups[index].count;
