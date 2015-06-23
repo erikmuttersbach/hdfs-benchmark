@@ -32,7 +32,7 @@ int main(int argc, char **argv) {
         double sum1 = 0, sum2 = 0, sum3 = 0, sum4 = 0, sum5 = 0, count = 0;
     };
     Group groups[4];
-    memset(groups, 4, sizeof(Group));
+    //memset(groups, 0, sizeof(Group)*4);
     double results[4 * 8];
     unsigned groupIds[4] = {('A' << 8) | 'F', ('N' << 8) | 'F', ('N' << 8) | 'O', ('R' << 8) | 'F'};
     std::mutex groupsMutex;
@@ -50,7 +50,7 @@ int main(int argc, char **argv) {
         ParquetFile file(static_cast<const uint8_t *>(block.data.get()), block.fileInfo.mSize);
 
         unsigned idx = idxCounter++;
-        _groups[idx].resize(file.getFileMetaData()->num_rows);
+        _groups[idx].resize(4);
 
         for (auto &rowGroup : file.getRowGroups()) {
             auto quantityColumn = rowGroup.getColumn(4).getReader();
