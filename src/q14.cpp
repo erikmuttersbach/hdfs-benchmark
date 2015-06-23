@@ -246,9 +246,7 @@ int main(int argc, char **argv) {
                 _l_shipdate.push_back(shipdate);
 
                 partkeyIndexMutex.lock();
-
-                    auto entry = l_partkeyIndex.insert(partkey);
-                
+                auto entry = l_partkeyIndex.insert(partkey);
                 entry->value.push_back(HL(idx1, l_shipdate.size()-1));
                 partkeyIndexMutex.unlock();
             }
@@ -256,9 +254,9 @@ int main(int argc, char **argv) {
     }, thread::hardware_concurrency());
 
     // Read part
-    hdfsReader.read(argv[2], [&](Block block) {
+    /*hdfsReader.read(argv[2], [&](Block block) {
         ParquetFile file(static_cast<const uint8_t *>(block.data.get()), block.fileInfo.mSize);
-    });
+    });*/
 
     auto stop = std::chrono::high_resolution_clock::now();
     cout << "duration " << std::chrono::duration_cast<std::chrono::milliseconds>(stop - start).count() << "ms" << endl;
