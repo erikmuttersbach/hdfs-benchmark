@@ -222,6 +222,7 @@ int main(int argc, char **argv) {
 
     double dividend=0,divisor=0;
 
+    auto start2 = std::chrono::high_resolution_clock::now();
     hdfsReader.read(argv[4], nullptr, [&](Block block) {
         ParquetFile file(static_cast<const uint8_t *>(block.data.get()), block.fileInfo.mSize);
         for (auto &rowGroup : file.getRowGroups()) {
@@ -258,10 +259,13 @@ int main(int argc, char **argv) {
     });
     double result=100*(dividend/divisor);
 
+    auto stop = std::chrono::high_resolution_clock::now();
+    auto stop2 = std::chrono::high_resolution_clock::now();
+
     cout << result << endl;
 
-    auto stop = std::chrono::high_resolution_clock::now();
     cout << "duration " << std::chrono::duration_cast<std::chrono::milliseconds>(stop - start).count() << "ms" << endl;
+    cout << "duration " << std::chrono::duration_cast<std::chrono::milliseconds>(stop2 - start2).count() << "ms" << endl;
 
     return 0;
 }
