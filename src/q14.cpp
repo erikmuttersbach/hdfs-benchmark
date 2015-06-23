@@ -6,6 +6,7 @@
 #include <vector>
 #include <iomanip>
 #include <hdfs/hdfs.h>
+#include <boost/log/trivial.hpp>
 
 #include "HdfsReader.h"
 #include "ParquetFile.h"
@@ -227,17 +228,19 @@ int main(int argc, char **argv) {
             while (partkeyColumn.hasNext()) {
                 assert(shipdateColumn.hasNext() && extendedpriceColumn.hasNext() && discountColumn.hasNext());
 
-                ByteArray shipdateByteArray = shipdateColumn.read < ByteArray > ();
+                string shipdateByteArray = shipdateColumn.read < string > ();
                 int a = 0, b = 0, c = 0;
-                sscanf(reinterpret_cast<const char *>(shipdateByteArray.ptr), "%d-%d-%d", &a, &b, &c);
+                sscanf(reinterpret_cast<const char *>(shipdateByteArray.c_str()), "%d-%d-%d", &a, &b, &c);
                 unsigned shipdate = (a * 10000) + (b * 100) + c;
 
                 auto partkey = partkeyColumn.read < int32_t > ();
                 auto extendedprice = extendedpriceColumn.read < double > ();
                 auto discount = discountColumn.read < double > ();
 
+                //BOOST_LOG_TRIVIAL(debug) << shipdate << endl;
+
                 // TODO correct?
-                if (shipdate < 19940301 || shipdate >= 19940401) {
+                if (shipdate < 19950901 || shipdate >= 19951001) {
                     continue;
                 }
 
@@ -247,16 +250,57 @@ int main(int argc, char **argv) {
 
                 partkeyIndexMutex.lock();
                 auto entry = l_partkeyIndex.insert(partkey);
-                entry->value.push_back(HL(idx1, l_shipdate.size()-1));
+                entry->value.push_back(HL(idx1, _l_shipdate.size()-1));
                 partkeyIndexMutex.unlock();
             }
         }
     }, thread::hardware_concurrency());
 
     // Read part
-    /*hdfsReader.read(argv[2], [&](Block block) {
+    // TODO parallelize
+    static const char* promo="PROMO";
+    uint32_t promoPattern1=*reinterpret_cast<const uint32_t*>(promo);
+    uint8_t promoPattern2=*reinterpret_cast<const uint8_t*>(promo+4);
+
+    double dividend=0,divisor=0;
+
+    hdfsReader.read(argv[3], [&](Block block) {
         ParquetFile file(static_cast<const uint8_t *>(block.data.get()), block.fileInfo.mSize);
-    });*/
+        for (auto &rowGroup : file.getRowGroups()) {
+            auto partkeyColumn = rowGroup.getColumn(0).getReader();
+            auto typeColumn = rowGroup.getColumn(4).getReader();
+
+            while(partkeyColumn.hasNext()) {
+                assert(typeColumn.hasNext());
+
+                auto partkey = partkeyColumn.read < int32_t > ();
+                auto typeByteArray = typeColumn.read < ByteArray > ();
+
+                auto entry = l_partkeyIndex.lookup(partkey);
+                if (entry == 0) {
+                    continue;
+                }
+
+                P_type type;
+                memset(type.data, 0, 25);
+                memcpy(type.data, typeByteArray.ptr, MIN(25, typeByteArray.len));
+                uint32_t t1 = *reinterpret_cast<const uint32_t *>(type.data);
+                uint8_t t2 = *reinterpret_cast<const uint8_t *>(type.data + 4);
+
+                for (uint64_t idx : entry->value) {
+                    int32_t idx1 = H(idx), idx2 = L(idx);
+                    double a = l_extendedprice[idx1][idx2] * (1 - l_discount[idx1][idx2]);
+                    if ((t1 == promoPattern1) && (t2 == promoPattern2)) {
+                        dividend += a;
+                    }
+                    divisor += a;
+                }
+            }
+        }
+    });
+    double result=100*(dividend/divisor);
+
+    cout << result << endl;
 
     auto stop = std::chrono::high_resolution_clock::now();
     cout << "duration " << std::chrono::duration_cast<std::chrono::milliseconds>(stop - start).count() << "ms" << endl;
