@@ -115,14 +115,14 @@ int main(int argc, char **argv) {
         groupsMutex.unlock();*/
     }, threadCount);
 
-    for(vector<Group> &g : _groups) {
+    for(unsigned x=0; x<_groups.size(); x++) {
         for (unsigned i = 0; i < 4; i++) {
-            groups[i].sum1 += g[i].sum1;
-            groups[i].sum2 += g[i].sum2;
-            groups[i].sum3 += g[i].sum3;
-            groups[i].sum4 += g[i].sum4;
-            groups[i].sum5 += g[i].sum5;
-            groups[i].count += g[i].count;
+            groups[i].sum1 += _groups[x][i].sum1;
+            groups[i].sum2 += _groups[x][i].sum2;
+            groups[i].sum3 += _groups[x][i].sum3;
+            groups[i].sum4 += _groups[x][i].sum4;
+            groups[i].sum5 += _groups[x][i].sum5;
+            groups[i].count += _groups[x][i].count;
         }
     }
 
