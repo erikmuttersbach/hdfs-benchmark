@@ -195,27 +195,25 @@ int main(int argc, char **argv) {
     HashIndexLinearProbing<uint64_t> l_partkeyIndex(80000);
 
     // Read lineitem and build up a HashIndex
-    vector<double> l_extendedprice, l_discount;
-    vector<unsigned> l_shipdate;
-    //mutex lineitemMutex;
+    vector<vector<double>> l_extendedprice, l_discount;
+    vector<vector<unsigned>> l_shipdate;
+    mutex lineitemMutex;
 
     hdfsReader.read(argv[2], [&](Block block) {
         ParquetFile file(static_cast<const uint8_t *>(block.data.get()), block.fileInfo.mSize);
         //file.printSchema();
 
-        /*lineitemMutex.lock();
-        l_partkey.push_back(vector<unsigned>());
+        lineitemMutex.lock();
         l_extendedprice.push_back(vector<double>());
         l_discount.push_back(vector<double>());
         l_shipdate.push_back(vector<unsigned>());
 
-        auto &_l_partkey = l_partkey.back();
         auto &_l_extendedprice = l_extendedprice.back();
         auto &_l_discount = l_discount.back();
         auto &_l_shipdate = l_shipdate.back();
 
-        uint32_t idx1 = l_partkey.size()-1;
-        lineitemMutex.unlock();*/
+        uint32_t idx1 = l_extendedprice.size()-1;
+        lineitemMutex.unlock();
 
         for (auto &rowGroup : file.getRowGroups()) {
             auto partkeyColumn = rowGroup.getColumn(1).getReader();
@@ -240,12 +238,12 @@ int main(int argc, char **argv) {
                     continue;
                 }
 
-                l_extendedprice.push_back(extendedprice);
-                l_discount.push_back(discount);
-                l_shipdate.push_back(shipdate);
+                _l_extendedprice.push_back(extendedprice);
+                _l_discount.push_back(discount);
+                _l_shipdate.push_back(shipdate);
 
-                auto entry = l_partkeyIndex.insert(partkey);
-                entry->value = l_shipdate.size()-1;
+                //auto entry = l_partkeyIndex.insert(partkey);
+                //entry->value = l_shipdate.size()-1;
             }
         }
         //auto entry=p_partkeyIndex.insert(p_partkey[tid]);
