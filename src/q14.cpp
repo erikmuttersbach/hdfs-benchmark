@@ -134,65 +134,21 @@ namespace {
     }
 }
 
-static uint64_t rdtsc()
-// Cycle counter on x86
-{
-#if defined(__x86_64__) && defined(__GNUC__)
-    uint32_t hi, lo;
-    __asm__ __volatile__ ("rdtsc" : "=a"(lo), "=d"(hi));
-    return static_cast<uint64_t>(lo) | (static_cast<uint64_t>(hi) << 32);
-#else
-   return 0;
-#endif
-}
-
-static void query(const vector<P_type> &p_type, const vector<unsigned> &l_partkey,
-                  const vector<double> &l_extendedprice, const vector<double> &l_discount,
-                  const vector<unsigned> &l_shipdate, HashIndexLinearProbing<uint64_t> &p_partkeyIndex,
-                  double &result) {
-    static const char *promo = "PROMO";
-    uint32_t promoPattern1 = *reinterpret_cast<const uint32_t *>(promo);
-    uint8_t promoPattern2 = *reinterpret_cast<const uint8_t *>(promo + 4);
-
-    auto start = rdtsc();
-    double dividend = 0, divisor = 0;
-    for (unsigned long tid = 0, limit = l_partkey.size(); tid != limit; ++tid) {
-        if ((l_shipdate[tid] < 19940301) || (l_shipdate[tid] >= 19940401)) continue;
-#ifdef DIRECTINDEX
-      uint64_t pTid=l_partkey[tid]-1;
-      uint32_t t1=*reinterpret_cast<const uint32_t*>(p_type[pTid].data);
-      uint8_t t2=*reinterpret_cast<const uint8_t*>(p_type[pTid].data+4);
-#else
-        auto entry = p_partkeyIndex.lookup(l_partkey[tid]);
-        uint32_t t1 = *reinterpret_cast<const uint32_t *>(p_type[entry->value].data);
-        uint8_t t2 = *reinterpret_cast<const uint8_t *>(p_type[entry->value].data + 4);
-#endif
-        double a = l_extendedprice[tid] * (1 - l_discount[tid]);
-        if ((t1 == promoPattern1) && (t2 == promoPattern2))
-            dividend += a;
-        divisor += a;
-    }
-    auto stop = rdtsc();
-    auto diff = stop - start;
-    cerr << diff << " cycles, " << (static_cast<double>(diff) / l_partkey.size()) << " cycles per lineitem tuple" <<
-    endl;
-    result = 100 * (dividend / divisor);
-}
-
 #define HL(H,L)     ((uint64_t)(((uint64_t)H << 32) + L))
 #define H(X)        (X >> 32)
 #define L(X)        (X & 0x00000000FFFFFFFF)
 
 // q14, assumes statistics are known
-
 int main(int argc, char **argv) {
     initLogging();
-    if (argc != 4) {
-        cout << "Usage: " << argv[0] << " NAMENODE LINEITEM-PATH PART-PATH" << endl;
+    if (argc != 5) {
+        cout << "Usage: " << argv[0] << " #THREADS NAMENODE LINEITEM-PATH PART-PATH" << endl;
         exit(1);
     }
 
-    HdfsReader hdfsReader(argv[1]);
+    const unsigned threadCount = atoi(argv[1]);
+
+    HdfsReader hdfsReader(argv[2]);
     hdfsReader.connect();
 
     auto start = std::chrono::high_resolution_clock::now();
@@ -209,7 +165,7 @@ int main(int argc, char **argv) {
     boost::atomic<uint32_t> idx1Counter(0);
 
     // Read lineitem and build up the hash index
-    hdfsReader.read(argv[2], [&](vector<string> &paths) {
+    hdfsReader.read(argv[3], [&](vector<string> &paths) {
         l_extendedprice.resize(paths.size());
         l_discount.resize(paths.size());
         l_shipdate.resize(paths.size());
@@ -256,7 +212,7 @@ int main(int argc, char **argv) {
                 idx2++;
             }
         }
-    }, thread::hardware_concurrency());
+    }, threadCount);
 
     // Read part
     // TODO parallelize
@@ -266,7 +222,7 @@ int main(int argc, char **argv) {
 
     double dividend=0,divisor=0;
 
-    hdfsReader.read(argv[3], nullptr, [&](Block block) {
+    hdfsReader.read(argv[4], nullptr, [&](Block block) {
         ParquetFile file(static_cast<const uint8_t *>(block.data.get()), block.fileInfo.mSize);
         for (auto &rowGroup : file.getRowGroups()) {
             auto partkeyColumn = rowGroup.getColumn(0).getReader();
