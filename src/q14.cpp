@@ -109,7 +109,7 @@ namespace {
     {
         uint64_t pos = hashFunction(key) & mask;
         while (hashTable[pos] != 0) {
-            if(hashTable[pos]->key == key) {
+            if (hashTable[pos]->key == key) {
                 return hashTable[pos];
             }
             pos = (pos + 1) & mask;
@@ -134,7 +134,7 @@ namespace {
     }
 }
 
-#define HL(H,L)     ((uint64_t)(((uint64_t)H << 32) + L))
+#define HL(H, L)     ((uint64_t)(((uint64_t)H << 32) + L))
 #define H(X)        (X >> 32)
 #define L(X)        (X & 0x00000000FFFFFFFF)
 
@@ -162,7 +162,7 @@ int main(int argc, char **argv) {
 
     mutex partkeyIndexMutex;
 
-    boost::atomic<uint32_t> idx1Counter(0);
+    boost::atomic <uint32_t> idx1Counter(0);
 
     // Read lineitem and build up the hash index
     hdfsReader.read(argv[3], [&](vector<string> &paths) {
@@ -216,20 +216,29 @@ int main(int argc, char **argv) {
 
     // Read part
     // TODO parallelize
-    static const char* promo="PROMO";
-    uint32_t promoPattern1=*reinterpret_cast<const uint32_t*>(promo);
-    uint8_t promoPattern2=*reinterpret_cast<const uint8_t*>(promo+4);
+    static const char *promo = "PROMO";
+    uint32_t promoPattern1 = *reinterpret_cast<const uint32_t *>(promo);
+    uint8_t promoPattern2 = *reinterpret_cast<const uint8_t *>(promo + 4);
 
-    double dividend=0,divisor=0;
+    vector<double> dividend, divisor;
+    boost::atomic<unsigned> idxCounter(0);
 
     auto start2 = std::chrono::high_resolution_clock::now();
-    hdfsReader.read(argv[4], nullptr, [&](Block block) {
+    hdfsReader.read(argv[4], [&](vector<string> &paths) {
+        dividend.resize(paths.size());
+        divisor.resize(paths.size());
+    }, [&](Block block) {
         ParquetFile file(static_cast<const uint8_t *>(block.data.get()), block.fileInfo.mSize);
+
+        unsigned idx = idxCounter++;
+        divisor[idx] = 0;
+        dividend[idx] = 0;
+
         for (auto &rowGroup : file.getRowGroups()) {
             auto partkeyColumn = rowGroup.getColumn(0).getReader();
             auto typeColumn = rowGroup.getColumn(4).getReader();
 
-            while(partkeyColumn.hasNext()) {
+            while (partkeyColumn.hasNext()) {
                 assert(typeColumn.hasNext());
 
                 auto partkey = partkeyColumn.read < int32_t > ();
@@ -246,18 +255,23 @@ int main(int argc, char **argv) {
                 uint32_t t1 = *reinterpret_cast<const uint32_t *>(type.data);
                 uint8_t t2 = *reinterpret_cast<const uint8_t *>(type.data + 4);
 
-                for (uint64_t idx : entry->value) {
-                    int32_t idx1 = H(idx), idx2 = L(idx);
-                    double a = l_extendedprice[idx1][idx2] * (1 - l_discount[idx1][idx2]);
+                for (uint64_t tidx : entry->value) {
+                    int32_t tidx1 = H(tidx), tidx2 = L(tidx);
+                    double a = l_extendedprice[tidx1][tidx2] * (1 - l_discount[tidx1][tidx2]);
                     if ((t1 == promoPattern1) && (t2 == promoPattern2)) {
-                        dividend += a;
+                        dividend[idx] += a;
                     }
-                    divisor += a;
+                    divisor[idx] += a;
                 }
             }
         }
-    });
-    double result=100*(dividend/divisor);
+    }, 4);
+    double dividendSum = 0, divisorSum = 0;
+    for(unsigned i=0; i<dividend.size(); i++) {
+        dividendSum += dividend[i];
+        divisorSum += divisor[i];
+    }
+    double result = 100 * (dividendSum / divisorSum);
 
     auto stop = std::chrono::high_resolution_clock::now();
     auto stop2 = std::chrono::high_resolution_clock::now();
@@ -265,7 +279,8 @@ int main(int argc, char **argv) {
     cout << result << endl;
 
     cout << "duration " << std::chrono::duration_cast<std::chrono::milliseconds>(stop - start).count() << "ms" << endl;
-    cout << "duration " << std::chrono::duration_cast<std::chrono::milliseconds>(stop2 - start2).count() << "ms" << endl;
+    cout << "duration " << std::chrono::duration_cast<std::chrono::milliseconds>(stop2 - start2).count() << "ms" <<
+    endl;
 
     return 0;
 }
