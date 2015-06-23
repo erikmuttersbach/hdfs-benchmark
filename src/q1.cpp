@@ -51,6 +51,7 @@ int main(int argc, char **argv) {
 
         unsigned idx = idxCounter++;
         _groups[idx].resize(4);
+        cout << "Resizing _groups["<<idx<<"]" << endl;
 
         for (auto &rowGroup : file.getRowGroups()) {
             auto quantityColumn = rowGroup.getColumn(4).getReader();

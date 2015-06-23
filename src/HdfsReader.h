@@ -163,7 +163,7 @@ public:
                     }*/
 
                     // B) doesnt guarantee order
-                    if (blockCount == consumedBlocks || stopConsumers) {
+                    if (blockCount == consumedBlocks) {
                         break;
                     }
 
