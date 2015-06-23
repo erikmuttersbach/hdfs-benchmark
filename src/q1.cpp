@@ -22,6 +22,8 @@ int main(int argc, char **argv) {
         exit(1);
     }
 
+    const unsigned threadCount = atoi(argv[1]);
+
     HdfsReader hdfsReader(argv[2]);
     hdfsReader.connect();
 
@@ -105,8 +107,7 @@ int main(int argc, char **argv) {
             groups[i].count += _groups[i].count;
         }
         groupsMutex.unlock();
-    }, thread::hardware_concurrency());
-
+    }, threadCount);
 
     for (unsigned index = 0; index != 4; ++index) {
         double count = groups[index].count;
