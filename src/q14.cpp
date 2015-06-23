@@ -248,7 +248,7 @@ int main(int argc, char **argv) {
         }
         //auto entry=p_partkeyIndex.insert(p_partkey[tid]);
         //entry->value=tid;
-    });
+    }, thread::hardware_concurrency());
 
     auto stop = std::chrono::high_resolution_clock::now();
     cout << "duration " << std::chrono::duration_cast<std::chrono::milliseconds>(stop - start).count() << "ms" << endl;
