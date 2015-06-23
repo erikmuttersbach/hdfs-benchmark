@@ -45,54 +45,10 @@ public:
         return this->bufferLength;
     }
 
-    /*unsigned int getRowGroups() {
-        return this->fileMetaData.row_groups.size();
-    }*/
     vector<benchmark::RowGroup> getRowGroups() {
         return this->rowGroups;
     }
 
-    /*ColumnReader *getColumnReader(unsigned int rowGroup, unsigned int col) {
-        ColumnChunk column = this->fileMetaData.row_groups[rowGroup].columns[col];
-        size_t columnStart = column.meta_data.data_page_offset;
-        if (column.meta_data.__isset.dictionary_page_offset) {
-            if (columnStart > column.meta_data.dictionary_page_offset) {
-                columnStart = column.meta_data.dictionary_page_offset;
-            }
-        }
-
-        const uint8_t *columnBuffer = this->buffer + columnStart;
-        InMemoryInputStream *input = new InMemoryInputStream(columnBuffer, column.meta_data.total_compressed_size);
-        return new ColumnReader(&column.meta_data, &this->fileMetaData.schema[col + 1], input);
-    }*/
-
-    /*template<typename T, typename TR = T>
-    vector<TR> readColumn(unsigned int i, function<TR(T)> func = [](T t){return t;}) {
-        vector<TR> data;
-        for(auto &rowGroup : this->fileMetaData.row_groups) {
-            parquet::ColumnChunk column = rowGroup.columns[i];
-            size_t columnStart = column.meta_data.data_page_offset;
-            if (column.meta_data.__isset.dictionary_page_offset) {
-                if (columnStart > column.meta_data.dictionary_page_offset) {
-                    columnStart = column.meta_data.dictionary_page_offset;
-                }
-            }
-
-            const uint8_t *columnBuffer = this->buffer + columnStart;
-            InMemoryInputStream input(columnBuffer, column.meta_data.total_compressed_size);
-            ColumnReader reader(&column.meta_data, &this->fileMetaData.schema[i + 1], &input);
-
-            int repetitionLevel = 0, defintionLevel = 0;
-            while (reader.HasNext()) {
-                auto value = this->readValue<T>(reader, &repetitionLevel, &defintionLevel);
-                data.push_back(func(value));
-            }
-        }
-
-        return data;
-    }*/
-
-    // explicit_specialization.cpp
     template<typename T>
     T readValue(ColumnReader &reader, int *repetitionLevel, int *defintionLevel);
 

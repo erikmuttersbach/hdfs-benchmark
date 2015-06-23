@@ -8,7 +8,8 @@
 #include <hdfs/hdfs.h>
 
 #include "HdfsReader.h"
-#include "Table.h"
+#include "ParquetFile.h"
+#include "log.h"
 
 #define CONCAT(v1, v2) v1.insert(v1.end(), v2.begin(), v2.end());
 
@@ -135,109 +136,124 @@ static uint64_t rdtsc()
 #if defined(__x86_64__) && defined(__GNUC__)
     uint32_t hi, lo;
     __asm__ __volatile__ ("rdtsc" : "=a"(lo), "=d"(hi));
-    return static_cast<uint64_t>(lo)|(static_cast<uint64_t>(hi)<<32);
+    return static_cast<uint64_t>(lo) | (static_cast<uint64_t>(hi) << 32);
 #else
    return 0;
 #endif
 }
 
-static void query(const vector<P_type>& p_type,const vector<unsigned>& l_partkey,const vector<double>& l_extendedprice,const vector<double>& l_discount,const vector<unsigned>& l_shipdate,HashIndexLinearProbing<uint64_t>& p_partkeyIndex,double& result)
-{
-    static const char* promo="PROMO";
-    uint32_t promoPattern1=*reinterpret_cast<const uint32_t*>(promo);
-    uint8_t promoPattern2=*reinterpret_cast<const uint8_t*>(promo+4);
+static void query(const vector<P_type> &p_type, const vector<unsigned> &l_partkey,
+                  const vector<double> &l_extendedprice, const vector<double> &l_discount,
+                  const vector<unsigned> &l_shipdate, HashIndexLinearProbing<uint64_t> &p_partkeyIndex,
+                  double &result) {
+    static const char *promo = "PROMO";
+    uint32_t promoPattern1 = *reinterpret_cast<const uint32_t *>(promo);
+    uint8_t promoPattern2 = *reinterpret_cast<const uint8_t *>(promo + 4);
 
-    auto start=rdtsc();
-    double dividend=0,divisor=0;
-    for (unsigned long tid=0,limit=l_partkey.size();tid!=limit;++tid) {
-        if ((l_shipdate[tid]<19940301)||(l_shipdate[tid]>=19940401)) continue;
+    auto start = rdtsc();
+    double dividend = 0, divisor = 0;
+    for (unsigned long tid = 0, limit = l_partkey.size(); tid != limit; ++tid) {
+        if ((l_shipdate[tid] < 19940301) || (l_shipdate[tid] >= 19940401)) continue;
 #ifdef DIRECTINDEX
       uint64_t pTid=l_partkey[tid]-1;
       uint32_t t1=*reinterpret_cast<const uint32_t*>(p_type[pTid].data);
       uint8_t t2=*reinterpret_cast<const uint8_t*>(p_type[pTid].data+4);
 #else
-        auto entry=p_partkeyIndex.lookup(l_partkey[tid]);
-        uint32_t t1=*reinterpret_cast<const uint32_t*>(p_type[entry->value].data);
-        uint8_t t2=*reinterpret_cast<const uint8_t*>(p_type[entry->value].data+4);
+        auto entry = p_partkeyIndex.lookup(l_partkey[tid]);
+        uint32_t t1 = *reinterpret_cast<const uint32_t *>(p_type[entry->value].data);
+        uint8_t t2 = *reinterpret_cast<const uint8_t *>(p_type[entry->value].data + 4);
 #endif
-        double a=l_extendedprice[tid]*(1-l_discount[tid]);
-        if ((t1==promoPattern1)&&(t2==promoPattern2))
-            dividend+=a;
-        divisor+=a;
+        double a = l_extendedprice[tid] * (1 - l_discount[tid]);
+        if ((t1 == promoPattern1) && (t2 == promoPattern2))
+            dividend += a;
+        divisor += a;
     }
-    auto stop=rdtsc();
-    auto diff=stop-start;
-    cerr << diff << " cycles, " << (static_cast<double>(diff)/l_partkey.size()) << " cycles per lineitem tuple" << endl;
-    result=100*(dividend/divisor);
+    auto stop = rdtsc();
+    auto diff = stop - start;
+    cerr << diff << " cycles, " << (static_cast<double>(diff) / l_partkey.size()) << " cycles per lineitem tuple" <<
+    endl;
+    result = 100 * (dividend / divisor);
 }
 
+#define HL(H,L)     ((uint64_t)(((uint64_t)H << 32) + L))
+#define H(X)        (X >> 32)
+#define L(X)        (X & 0x00000000FFFFFFFF)
+
 int main(int argc, char **argv) {
+    initLogging();
+    if (argc != 4) {
+        cout << "Usage: " << argv[0] << " NAMENODE LINEITEM-PATH PART-PATH" << endl;
+        exit(1);
+    }
+
     HdfsReader hdfsReader(argv[1]);
     hdfsReader.connect();
 
-    // Reading part
-    vector<P_type> p_type;
-    vector<unsigned> p_partkey;
+    auto start = std::chrono::high_resolution_clock::now();
 
-    Table part(hdfsReader, vector<string>{"/tpch1_parquet.db/part"});
-    part.printSchema();
-    part.read([&p_partkey, &p_type](ParquetFile &parquetFile) {
-        vector<unsigned> _p_partkey = parquetFile.readColumn<int32_t, unsigned>(0, [](int32_t v) {
-            return static_cast<unsigned>(v);
-        });
-        vector<P_type> _p_type = parquetFile.readColumn<ByteArray, P_type>(4, [](ByteArray v) {
-            P_type p;
-            memset(p.data, 0, sizeof(p.data));
-            memcpy(p.data, v.ptr, MIN(v.len, 25));
-            return p;
-        });
+    // Data structures
+    HashIndexLinearProbing<uint64_t> l_partkeyIndex(80000);
 
-        p_partkey.insert(p_partkey.end(), _p_partkey.begin(), _p_partkey.end());
-        p_type.insert(p_type.end(), _p_type.begin(), _p_type.end());
-    });
-
-    // Reading lineitem
+    // Read lineitem and build up a HashIndex
     vector<double> l_extendedprice, l_discount;
-    vector<unsigned> l_shipdate, l_partkey;
+    vector<unsigned> l_shipdate;
+    //mutex lineitemMutex;
 
-    Table lineitem(hdfsReader, vector<string>{"/tpch1_parquet.db/lineitem"});
-    lineitem.printSchema();
-    lineitem.read([&l_partkey, &l_extendedprice, &l_discount, &l_shipdate](ParquetFile &parquetFile) {
-        auto _l_partkey = parquetFile.readColumn<int32_t, unsigned>(1, [](int32_t v) {
-            return static_cast<unsigned>(v);
-        });
-        auto _l_extendedprice = parquetFile.readColumn<double>(5);
-        auto _l_discount = parquetFile.readColumn<double>(6);
-        auto _l_shipdate = parquetFile.readColumn<string, unsigned>(10, [](string v) {
-            int a = 0, b = 0, c = 0;
-            sscanf(v.data(), "%d-%d-%d", &a, &b, &c);
-            return (a * 10000) + (b * 100) + c;
-        });
+    hdfsReader.read(argv[2], [&](Block block) {
+        ParquetFile file(static_cast<const uint8_t *>(block.data.get()), block.fileInfo.mSize);
+        //file.printSchema();
 
-        CONCAT(l_partkey, _l_partkey)
-        CONCAT(l_extendedprice, _l_extendedprice)
-        CONCAT(l_discount, _l_discount)
-        CONCAT(l_shipdate, _l_shipdate)
+        /*lineitemMutex.lock();
+        l_partkey.push_back(vector<unsigned>());
+        l_extendedprice.push_back(vector<double>());
+        l_discount.push_back(vector<double>());
+        l_shipdate.push_back(vector<unsigned>());
+
+        auto &_l_partkey = l_partkey.back();
+        auto &_l_extendedprice = l_extendedprice.back();
+        auto &_l_discount = l_discount.back();
+        auto &_l_shipdate = l_shipdate.back();
+
+        uint32_t idx1 = l_partkey.size()-1;
+        lineitemMutex.unlock();*/
+
+        for (auto &rowGroup : file.getRowGroups()) {
+            auto partkeyColumn = rowGroup.getColumn(1).getReader();
+            auto extendedpriceColumn = rowGroup.getColumn(5).getReader();
+            auto discountColumn = rowGroup.getColumn(6).getReader();
+            auto shipdateColumn = rowGroup.getColumn(10).getReader();
+
+            while (partkeyColumn.hasNext()) {
+                assert(shipdateColumn.hasNext() && extendedpriceColumn.hasNext() && discountColumn.hasNext());
+
+                ByteArray shipdateByteArray = shipdateColumn.read < ByteArray > ();
+                int a = 0, b = 0, c = 0;
+                sscanf(reinterpret_cast<const char *>(shipdateByteArray.ptr), "%d-%d-%d", &a, &b, &c);
+                unsigned shipdate = (a * 10000) + (b * 100) + c;
+
+                auto partkey = partkeyColumn.read < int32_t > ();
+                auto extendedprice = extendedpriceColumn.read < double > ();
+                auto discount = discountColumn.read < double > ();
+
+                // TODO correct?
+                if (shipdate < 19940301 || shipdate >= 19940401) {
+                    continue;
+                }
+
+                l_extendedprice.push_back(extendedprice);
+                l_discount.push_back(discount);
+                l_shipdate.push_back(shipdate);
+
+                auto entry = l_partkeyIndex.insert(partkey);
+                entry->value = l_shipdate.size()-1;
+            }
+        }
+        //auto entry=p_partkeyIndex.insert(p_partkey[tid]);
+        //entry->value=tid;
     });
 
-    cout << "constructing primary key index on part..." << endl;
-    HashIndexLinearProbing<uint64_t> p_partkeyIndex(p_partkey.size());
-    for (unsigned long tid = 0; tid != p_partkey.size(); ++tid) {
-        auto entry = p_partkeyIndex.insert(p_partkey[tid]);
-        entry->value = tid;
-    }
-    for (unsigned index = 0; index != 5; ++index) {
-        cerr << "executing query" << endl;
-        {
-            auto start = std::chrono::high_resolution_clock::now();
-            double result = 0;
-            query(p_type, l_partkey, l_extendedprice, l_discount, l_shipdate, p_partkeyIndex, result);
-            auto stop = std::chrono::high_resolution_clock::now();
-            cerr << fixed << setprecision(2) << result << endl;
-            cerr << "duration " << std::chrono::duration_cast<std::chrono::milliseconds>(stop - start).count() <<
-            "ms" << endl;
-        }
-    }
+    auto stop = std::chrono::high_resolution_clock::now();
+    cout << "duration " << std::chrono::duration_cast<std::chrono::milliseconds>(stop - start).count() << "ms" << endl;
 
     return 0;
 }

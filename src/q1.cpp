@@ -33,20 +33,21 @@ int main(int argc, char **argv) {
     HdfsReader hdfsReader(argv[1]);
     hdfsReader.connect();
 
+    // Intermediate and result data structures
     struct Group {
         double sum1 = 0, sum2 = 0, sum3 = 0, sum4 = 0, sum5 = 0, count = 0;
     };
     Group groups[4];
-    memset(groups, 4, sizeof(Group)); // TODO Needed?
+    memset(groups, 4, sizeof(Group));
     double results[4 * 8];
     unsigned groupIds[4] = {('A' << 8) | 'F', ('N' << 8) | 'F', ('N' << 8) | 'O', ('R' << 8) | 'F'};
+    std::mutex groupsMutex;
 
     auto start = std::chrono::high_resolution_clock::now();
 
-    SHA256 sha;
-
-    std::mutex groupsMutex;
-    hdfsReader.read(argv[2], [&sha, &groupsMutex, &groupIds, &groups](Block block) {
+    // Start Reading the directory of parquet files, process the files as
+    // they are available
+    hdfsReader.read(argv[2], [&groupsMutex, &groupIds, &groups](Block block) {
         ParquetFile file(static_cast<const uint8_t *>(block.data.get()), block.fileInfo.mSize);
         vector<Group> _groups(4);
         for (auto &rowGroup : file.getRowGroups()) {
@@ -79,7 +80,6 @@ int main(int argc, char **argv) {
                     continue;
                 }
 
-                // TODO better code ;)
                 int f = ((returnflag << 8) | linestatus);
                 int groupId = -1;
                 for (unsigned i = 0; i < 4; i++) {
