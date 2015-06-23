@@ -201,23 +201,23 @@ int main(int argc, char **argv) {
     vector<vector<double>> l_extendedprice, l_discount;
     vector<vector<unsigned>> l_shipdate;
 
-    mutex lineitemMutex, partkeyIndexMutex;
+    mutex partkeyIndexMutex;
+
+    boost::atomic<uint32_t> idx1Counter(0);
 
     // Read lineitem and build up the hash index
-    hdfsReader.read(argv[2], [&](Block block) {
+    hdfsReader.read(argv[2], [&](vector<string> &paths) {
+        l_extendedprice.resize(paths.size());
+        l_discount.resize(paths.size());
+        l_shipdate.resize(paths.size());
+    }, [&](Block block) {
         ParquetFile file(static_cast<const uint8_t *>(block.data.get()), block.fileInfo.mSize);
 
-        lineitemMutex.lock();
-        l_extendedprice.push_back(vector<double>());
-        l_discount.push_back(vector<double>());
-        l_shipdate.push_back(vector<unsigned>());
-
-        auto &_l_extendedprice = l_extendedprice.back();
-        auto &_l_discount = l_discount.back();
-        auto &_l_shipdate = l_shipdate.back();
-
-        uint32_t idx1 = l_extendedprice.size()-1;
-        lineitemMutex.unlock();
+        uint32_t idx1 = idx1Counter++;
+        uint32_t idx2 = 0;
+        l_extendedprice[idx1].resize(file.getFileMetaData()->num_rows);
+        l_discount[idx1].resize(file.getFileMetaData()->num_rows);
+        l_shipdate[idx1].resize(file.getFileMetaData()->num_rows);
 
         for (auto &rowGroup : file.getRowGroups()) {
             auto partkeyColumn = rowGroup.getColumn(1).getReader();
@@ -237,21 +237,20 @@ int main(int argc, char **argv) {
                 auto extendedprice = extendedpriceColumn.read < double > ();
                 auto discount = discountColumn.read < double > ();
 
-                //BOOST_LOG_TRIVIAL(debug) << shipdate << endl;
-
-                // TODO correct?
                 if (shipdate < 19950901 || shipdate >= 19951001) {
                     continue;
                 }
 
-                _l_extendedprice.push_back(extendedprice);
-                _l_discount.push_back(discount);
-                _l_shipdate.push_back(shipdate);
+                l_extendedprice[idx1][idx2] = extendedprice;
+                l_discount[idx1][idx2] = discount;
+                l_shipdate[idx1][idx2] = shipdate;
 
                 partkeyIndexMutex.lock();
                 auto entry = l_partkeyIndex.insert(partkey);
-                entry->value.push_back(HL(idx1, _l_shipdate.size()-1));
+                entry->value.push_back(HL(idx1, idx2));
                 partkeyIndexMutex.unlock();
+
+                idx2++;
             }
         }
     }, thread::hardware_concurrency());
@@ -264,7 +263,7 @@ int main(int argc, char **argv) {
 
     double dividend=0,divisor=0;
 
-    hdfsReader.read(argv[3], [&](Block block) {
+    hdfsReader.read(argv[3], nullptr, [&](Block block) {
         ParquetFile file(static_cast<const uint8_t *>(block.data.get()), block.fileInfo.mSize);
         for (auto &rowGroup : file.getRowGroups()) {
             auto partkeyColumn = rowGroup.getColumn(0).getReader();

@@ -45,7 +45,7 @@ public:
         return this->bufferLength;
     }
 
-    vector<benchmark::RowGroup> getRowGroups() {
+    vector<benchmark::RowGroup> &getRowGroups() {
         return this->rowGroups;
     }
 

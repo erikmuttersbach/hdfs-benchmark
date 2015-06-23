@@ -85,7 +85,10 @@ public:
      *
      * TODO can only be called if A) connected, B) another read(...) is not in progress
      */
-    void read(string path, function<void(Block &)> func = [](Block b) { }, unsigned consumerCount = 1) {
+    void read(string path,
+              function<void(vector<string> &paths)> initFunc = [](vector<string> &paths) {},
+              function<void(Block &)> func = [](Block b) { },
+              unsigned consumerCount = 1) {
         this->reset();
 
         // Check if path is pointing at a file or a directory
@@ -98,6 +101,10 @@ public:
             });
         } else {
             paths.push_back(path);
+        }
+
+        if(initFunc) {
+            initFunc(paths);
         }
 
         // Determine the set of hosts and the hosts of all files
