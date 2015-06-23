@@ -1,19 +1,11 @@
 #include <iostream>
-#include <string>
-#include <functional>
 #include <future>
-#include <mutex>
 
 #include <vector>
 #include <iomanip>
 
-#include <hdfs/hdfs.h>
-#include <parquet/parquet.h>
-#include <boost/log/trivial.hpp>
-
 #include "HdfsReader.h"
 #include "ParquetFile.h"
-//#include "Table.h"
 #include "log.h"
 #include "sha256.h"
 
@@ -25,12 +17,12 @@ static void print(const char *header, double *values) {
 
 int main(int argc, char **argv) {
     initLogging();
-    if (argc != 3) {
-        cout << "Usage: " << argv[0] << " NAMENODE LINEITEM-PATH" << endl;
+    if (argc != 4) {
+        cout << "Usage: " << argv[0] << " #THREADS NAMENODE LINEITEM-PATH" << endl;
         exit(1);
     }
 
-    HdfsReader hdfsReader(argv[1]);
+    HdfsReader hdfsReader(argv[2]);
     hdfsReader.connect();
 
     // Intermediate and result data structures
@@ -47,7 +39,9 @@ int main(int argc, char **argv) {
 
     // Start Reading the directory of parquet files, process the files as
     // they are available
-    hdfsReader.read(argv[2], [&groupsMutex, &groupIds, &groups](Block block) {
+    hdfsReader.read(argv[3], [&](vector<string> &paths){
+
+    },[&](Block block) {
         ParquetFile file(static_cast<const uint8_t *>(block.data.get()), block.fileInfo.mSize);
         vector<Group> _groups(4);
         for (auto &rowGroup : file.getRowGroups()) {
