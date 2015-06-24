@@ -4,6 +4,7 @@
 cmake_install.cmake
 clion1
 build/
+src/queries_original
 CMakeCache.txt
 CMakeFiles
 Makefile
@@ -11,3 +12,7 @@ Makefile
 iotop.log
 out.log
 CLASSPATH
+benchmark.rb
+perf.data
+
+*.swp
