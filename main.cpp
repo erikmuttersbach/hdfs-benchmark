@@ -234,6 +234,8 @@ int main(int argc, char *argv[]) {
         //hdfsBuilderConfSetStr(hdfsBuilder, "dfs.client.domain.socket.data.traffic", "true");
         //hdfsBuilderConfSetStr(hdfsBuilder, "dfs.client.read.shortcircuit.streams.cache.size", "4000");
         hdfsBuilderConfSetStr(hdfsBuilder, "dfs.client.read.shortcircuit.skip.checksum", options.skip_checksums > 0 ? "true" : "false");
+    } else {
+        hdfsBuilderConfSetStr(hdfsBuilder, "dfs.client.read.shortcircuit", "false");
     }
 
     // Connect
