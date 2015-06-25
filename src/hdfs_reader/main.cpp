@@ -1,10 +1,14 @@
 #include <iostream>
-
+#include <cassert>
 
 #include <string.h>
+#ifdef HAS_LIBHDFS
+#include <hdfs.h>
+#else
 #include <hdfs/hdfs.h>
+#endif
 
-#include <cassert>
+#include "options.h"
 
 using namespace std;
 
@@ -60,8 +64,8 @@ inline void useData(void *buffer, tSize len) {
 }
 
 
-bool readHdfsZcr(hdfsFS fs, hdfsFile file, hdfsFileInfo *fileInfo) {
-#ifdef LIBHDFS_HDFS_H
+bool readHdfsZcr(options_t &options, hdfsFS fs, hdfsFile file, hdfsFileInfo *fileInfo) {
+#ifdef HAS_LIBHDFS
     struct hadoopRzOptions *rzOptions;
     struct hadoopRzBuffer *rzBuffer;
 
@@ -107,13 +111,13 @@ bool readHdfsZcr(hdfsFS fs, hdfsFile file, hdfsFileInfo *fileInfo) {
     }
     return true;
 #else
-    cout << "ZCR not supported" << endl;
+    cout << "ZCR not supported (link with libhdfs)" << endl;
     return false;
 #endif
 }
 
 
-bool readHdfsStandard(hdfsFS fs, hdfsFile file, hdfsFileInfo *fileInfo) {
+bool readHdfsStandard(options_t &options, hdfsFS fs, hdfsFile file, hdfsFileInfo *fileInfo) {
     char *buffer = (char *) malloc(sizeof(char) * options.buffer_size);
     tSize total_read = 0, read = 0;
     do {
@@ -140,7 +144,7 @@ bool readHdfsStandard(hdfsFS fs, hdfsFile file, hdfsFileInfo *fileInfo) {
 }
 
 int main(int argc, char *argv[]) {
-    parse_options(argc, argv);
+    options_t options = parse_options(argc, argv);
 
     if(options.verbose) {
         cout << "Namenode:  " << options.namenode << ":" << options.namenode_port << endl;
@@ -181,7 +185,7 @@ int main(int argc, char *argv[]) {
         hdfsFileInfo *fileInfo = hdfsGetPathInfo(fs, options.path);
         fileSize = fileInfo[0].mSize;
 
-        #ifdef LIBHDFS_HDFS_H
+        #ifdef HAS_LIBHDFS
 		if(options.verbose) {
 	        char ***hosts = hdfsGetHosts(fs, options.path, 0, fileInfo->mSize);
     	    EXPECT_NONZERO(hosts, "hdfsGetHosts")
@@ -202,18 +206,18 @@ int main(int argc, char *argv[]) {
         EXPECT_NONZERO(file, "hdfsOpenFile")
 
         if(options.type == type_t::undefined) {
-            if (!readHdfsZcr(fs, file, fileInfo)) {
+            if (!readHdfsZcr(options, fs, file, fileInfo)) {
                 cout << "Falling back to standard read" << endl;
-                readHdfsStandard(fs, file, fileInfo);
+                readHdfsStandard(options, fs, file, fileInfo);
             }
         } else if(options.type == type_t::zcr) {
-            readHdfsZcr(fs, file, fileInfo);
+            readHdfsZcr(options, fs, file, fileInfo);
         } else {
-            readHdfsStandard(fs, file, fileInfo);
+            readHdfsStandard(options, fs, file, fileInfo);
         }
 
         // Get Statistics
-#ifdef LIBHDFS_HDFS_H
+#ifdef HAS_LIBHDFS
         if(options.verbose) {
             struct hdfsReadStatistics *stats;
             hdfsFileGetReadStatistics(file, &stats);

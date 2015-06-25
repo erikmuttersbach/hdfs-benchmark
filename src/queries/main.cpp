@@ -14,7 +14,8 @@ int main(int argc, char **argv) {
     reader.connect();
     reader.read(argv[2]);
 
-    ParquetFile file(static_cast<const uint8_t*>(reader.getBuffer()), reader.getFileSize());
+    ParquetFile file(static_cast<const uint8_t*>(reader.getcd ..
+            Buffer()), reader.getFileSize());
     file.printSchema();
 
     cout << "|";

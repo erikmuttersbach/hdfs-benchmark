@@ -23,6 +23,7 @@ void print_usage() {
                    "  -t, --type           One of standard, sc, zcr\n"
                    "  -n, --namenode       Namenode hostname, default: localhost\n"
                    "  -p, --namenode-port  Namenode port, default: 9000\n"
+                   "  -s, --socket         The short circuit socket\n"
                    "  -v, --verbose        Verbose output, e.g. statistics, formatted speed\n"
                    "  -x, --sample         Sample the copy speed every 1s\n");
 }
