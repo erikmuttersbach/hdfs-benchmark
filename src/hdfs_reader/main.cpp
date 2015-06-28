@@ -173,7 +173,7 @@ int main(int argc, char *argv[]) {
     hdfsFS fs = hdfsBuilderConnect(hdfsBuilder);
 	EXPECT_NONZERO(fs, "hdfsBuilderConnect")
 
-    struct timespec start, end;
+    struct timespec start, end, start2, end2;
 
     tOffset fileSize = 0;
 
@@ -205,6 +205,8 @@ int main(int argc, char *argv[]) {
         hdfsFile file = hdfsOpenFile(fs, options.path, O_RDONLY, options.buffer_size, 0, 0);
         EXPECT_NONZERO(file, "hdfsOpenFile")
 
+        clock_gettime(CLOCK_MONOTONIC, &start2);
+
         if(options.type == type_t::undefined) {
             if (!readHdfsZcr(options, fs, file, fileInfo)) {
                 cout << "Falling back to standard read" << endl;
@@ -215,6 +217,8 @@ int main(int argc, char *argv[]) {
         } else {
             readHdfsStandard(options, fs, file, fileInfo);
         }
+
+        clock_gettime(CLOCK_MONOTONIC, &end2);
 
         // Get Statistics
 #ifdef HAS_LIBHDFS
@@ -234,10 +238,12 @@ int main(int argc, char *argv[]) {
 
     clock_gettime(CLOCK_MONOTONIC, &end);
     struct timespec d = timespec_diff(start, end);
+    struct timespec d2 = timespec_diff(start2, end2);
     double speed = (((double) fileSize) / ((double) d.tv_sec + d.tv_nsec / 1000000000.0)) / (1024.0 * 1024.0);
+    double speed2 = (((double) fileSize) / ((double) d2.tv_sec + d2.tv_nsec / 1000000000.0)) / (1024.0 * 1024.0);
 
     if(options.verbose) {
-        printf("Read %f MB with %lfMiB/s\n", ((double) fileSize) / (1024.0 * 1024.0), speed);
+        printf("Read %f MB with %lfMB/s (%lfMB/s)\n", ((double) fileSize) / (1024.0 * 1024.0), speed, speed2);
     } else {
         printf("%f\n", speed);
     }
