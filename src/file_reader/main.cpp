@@ -222,7 +222,7 @@ int main(int argc, char *argv[]) {
     auto stop = std::chrono::high_resolution_clock::now();
     double sec = ((double)std::chrono::duration_cast<std::chrono::milliseconds>(stop - start).count())/1000.0;
 
-    cout << ((double)len)/(1024.*1024.)/sec << " MB/s" << endl;
+    cout << ((double)len)/(1024.*1024.)/sec << "" << endl;
 
 
     return 0;
