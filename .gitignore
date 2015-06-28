@@ -12,7 +12,6 @@ Makefile
 iotop.log
 out.log
 CLASSPATH
-benchmark.rb
 perf.data
 
 *.swp
