@@ -13,6 +13,7 @@ end
 puts "\n"
 end
 end
+=end
 
 [:hot, :cold]. each do |h|
 ['', '--advise-sequential', '--advise-willneed', '--use-readahead', '--use-ioprio'].each do |opt|
@@ -27,8 +28,8 @@ end
 puts "\n"
 end
 end
-=end
 
+=begin
 [:hot, :cold]. each do |h|
 puts "#{h}"
 ['1000M', '2000M', '5000M', '10000M', '15000M'].each do |file|
@@ -40,4 +41,4 @@ puts "#{h}"
 end
 puts "\n"
 end
-
+=end

@@ -174,7 +174,6 @@ int main(int argc, char *argv[]) {
 	EXPECT_NONZERO(fs, "hdfsBuilderConnect")
 
     struct timespec start, end, start2, end2;
-
     tOffset fileSize = 0;
 
     // Check if the file exists
@@ -245,11 +244,11 @@ int main(int argc, char *argv[]) {
     if(options.verbose) {
         printf("Read %f MB with %lfMB/s (%lfMB/s)\n", ((double) fileSize) / (1024.0 * 1024.0), speed, speed2);
     } else {
-        printf("%f\n", speed);
+        printf("%f %f\n", speed, speed2);
     }
 
     hdfsDisconnect(fs);
-    //hdfsFreeBuilder(hdfsBuilder);
+    //hdfsFreeBuilder(hdfsBuilder); // SEGFAULT's
 
     return 0;
 }
