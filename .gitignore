@@ -13,6 +13,7 @@ iotop.log
 out.log
 CLASSPATH
 perf.data
+benchmark.out
 
 *.swp
 ifstat.out
