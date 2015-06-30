@@ -1,4 +1,26 @@
+def start_ifstat()
+  `ifstat -i en0 > ifstat.out &`
+end
+
+def ifstat_end()
+  sleep 1
+  `killall ifstat`
+  
+  lines = File.read('ifstat.out').split("\n").drop(2)
+  traffic_in = 0
+  traffic_out = 0
+  t = (lines.map do |line|
+    s = line.split(/\s+/)
+    traffic_in += s[1].to_f
+    traffic_out += s[2].to_f
+  end)
+  
+  return traffic_in, traffic_out
+end
+
+
 # Determine best buffer size
+=begin
 [:hot, :cold]. each do |h|
 ['/tpch/100/customer/customer.tbl', '/tpch/100/orders/orders.tbl'].each do |file|
 puts "#{h}, #{file}"
@@ -11,6 +33,7 @@ puts "#{h}, #{file}"
 end
 end
 end
+=end
 
 =begin
 # Show read speed for different files
