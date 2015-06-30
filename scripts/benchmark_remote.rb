@@ -2,7 +2,7 @@ def start_ifstat()
   `ifstat -i en0 > ifstat.out &`
 end
 
-def ifstat_end()
+def stop_ifstat()
   sleep 1
   `killall ifstat`
   
@@ -18,6 +18,9 @@ def ifstat_end()
   return traffic_in, traffic_out
 end
 
+start_ifstat()
+sleep 90
+p stop_ifstat()
 
 # Determine best buffer size
 =begin
