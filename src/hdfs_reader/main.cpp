@@ -184,7 +184,6 @@ int main(int argc, char *argv[]) {
         hdfsFileInfo *fileInfo = hdfsGetPathInfo(fs, options.path);
         fileSize = fileInfo[0].mSize;
 
-        #ifdef HAS_LIBHDFS
 		if(options.verbose) {
 	        char ***hosts = hdfsGetHosts(fs, options.path, 0, fileInfo->mSize);
     	    EXPECT_NONZERO(hosts, "hdfsGetHosts")
@@ -196,7 +195,6 @@ int main(int argc, char *argv[]) {
        	 	}
 			cout << "Reading " << i << " blocks" << endl;
 		}
-		#endif
 
         clock_gettime(CLOCK_MONOTONIC, &start);
 
