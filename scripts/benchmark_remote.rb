@@ -5,7 +5,7 @@ puts "#{h}, #{file}"
 [1024, 4096, 1024*64, 1024*1024, 1024*1024*8, 1024*1024*64, 512*1024*1024].each do |buffer_size|
     (1..5).each do |i|
         %x(for i in `seq 11 16`;do ssh scyper$i "/usr/local/bin/flush_fs_caches"; done;) if h == :cold
-        print (`./build/hdfs_reader -n scyper11 -s /var/run/hdfs-sockets/dn -f #{file} -b #{buffer_size} scr`).gsub("\n", '').gsub(',', '.')+" "
+        print (`./build/hdfs_reader -n scyper11 -s /var/run/hdfs-sockets/dn -f #{file} -b #{buffer_size} -t scr`).gsub("\n", '').gsub(',', '.')+" "
     end
     puts " "
 end
