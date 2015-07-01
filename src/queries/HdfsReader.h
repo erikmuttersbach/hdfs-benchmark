@@ -13,6 +13,7 @@
 #include <condition_variable>
 #include <iostream>
 #include <unordered_map>
+#include <algorithm>
 
 #include <boost/log/trivial.hpp>
 #include <boost/thread.hpp>
@@ -90,7 +91,7 @@ public:
      * TODO can only be called if A) connected, B) another read(...) is not in progress
      */
     void read(string path,
-              function<void(vector<string> &paths)> initFunc = [](vector<string> &paths) {},
+              function<void(vector<string> &paths)> initFunc = [](vector<string> &paths) { },
               function<void(Block &)> func = [](Block b) { },
               unsigned consumerCount = 1) {
         this->reset();
@@ -107,7 +108,7 @@ public:
             paths.push_back(path);
         }
 
-        if(initFunc) {
+        if (initFunc) {
             initFunc(paths);
         }
 
@@ -121,10 +122,6 @@ public:
             EXPECT_NONZERO_EXC(fileBlocksHosts, "hdfsGetHosts")
 
             for (size_t blockIdx = 0; fileBlocksHosts[blockIdx]; blockIdx++) {
-                if (blockIdx > 0) {
-                    throw runtime_error("Multi-block files are not supported (" + path + ")");
-                }
-
                 set<string> blockHosts;
                 for (size_t hostIdx = 0; fileBlocksHosts[blockIdx][hostIdx]; hostIdx++) {
                     char *host = fileBlocksHosts[blockIdx][hostIdx];
@@ -136,12 +133,14 @@ public:
             }
         }
 
+        BOOST_LOG_TRIVIAL(debug) << "Downloading " << pendingBlocks.size() << "blocks";
+
         size_t blockCount = pendingBlocks.size();
         boost::atomic<unsigned> consumedBlocks(0);
 
         // block consumers
         boost::thread_group consumers;
-        for(unsigned int i=0; i<consumerCount; i++) {
+        for (unsigned int i = 0; i < consumerCount; i++) {
             consumers.create_thread([i, &blockCount, &consumedBlocks, this, &func]() {
                 //uint32_t lastBlock = -1;
 
@@ -181,7 +180,7 @@ public:
 
                         if (blockCount == consumedBlocks) {
                             break;
-                        } else if(loadedBlocks.size() > 0) {
+                        } else if (loadedBlocks.size() > 0) {
                             block = new Block(loadedBlocks.pop());
                             consumedBlocks++;
                         }
@@ -190,7 +189,7 @@ public:
                     if (func && block != 0) {
                         func(*block);
                         BOOST_LOG_TRIVIAL(debug) << "Thread-" << i << " finished work";
-                    } else if(block == 0) {
+                    } else if (block == 0) {
                         BOOST_LOG_TRIVIAL(debug) << "Thread-" << i << " found block == 0";
                     }
 
@@ -300,14 +299,16 @@ private:
                 }
 
                 if (downloadBlock == NULL) {
-                    BOOST_LOG_TRIVIAL(debug) << "Thread-" << host << " did not find job (" << pendingBlocks.size() << " pending)";
+                    BOOST_LOG_TRIVIAL(debug) << "Thread-" << host << " did not find job (" << pendingBlocks.size() <<
+                                             " pending)";
                     break;
                 }
 
             }
 
             // Download the block `downloadBlockIdx`
-            BOOST_LOG_TRIVIAL(debug) << "Thread-" << host << " downloading " << downloadBlock->fileInfo.mName;
+            BOOST_LOG_TRIVIAL(debug) << "Thread-" << host << " downloading " << downloadBlock->fileInfo.mName << "(" <<
+                                     downloadBlock->idx << ")";
 
             auto start = chrono::high_resolution_clock::now();
 
@@ -316,26 +317,29 @@ private:
             EXPECT_NONZERO_EXC(file, "hdfsOpenFile2")
 
             downloadBlock->host = host;
-            downloadBlock->data = shared_ptr<void>(malloc(downloadBlock->fileInfo.mSize), free);
+            downloadBlock->len =
+                    downloadBlock->fileInfo.mSize - downloadBlock->idx * downloadBlock->fileInfo.mBlockSize;
+            downloadBlock->data = shared_ptr<void>(malloc(downloadBlock->len), free);
 
-            //tOffset offset = downloadBlock->fileInfo.mBlockSize*((uint64_t)downloadBlock->idx);
-            //int r = hdfsSeek(fs, file, offset);
-            //EXPECT_NONNEGATIVE(r, "hdfsSeek")
+            tOffset offset = downloadBlock->fileInfo.mBlockSize * ((uint64_t) downloadBlock->idx);
+            int r = hdfsSeek(fs, file, offset);
+            EXPECT_NONNEGATIVE(r, "hdfsSeek")
 
             tSize read = 0, totalRead = 0;
             do {
                 read = hdfsRead(fs, file, static_cast<char *>(downloadBlock->data.get()) + totalRead,
-                                downloadBlock->fileInfo.mSize);
+                                downloadBlock->len - totalRead);
                 EXPECT_NONNEGATIVE(read, "hdfsRead")
 
                 totalRead += read;
-            } while (read > 0 && totalRead < downloadBlock->fileInfo.mSize);
+            } while (read > 0 && totalRead < downloadBlock->len);
 
-            assert(totalRead == downloadBlock->fileInfo.mSize);
+            assert(totalRead == downloadBlock->len);
 
             auto seconds = ((double) (chrono::duration_cast<chrono::milliseconds>(
                     chrono::high_resolution_clock::now() - start)).count()) / 1000.0;
             BOOST_LOG_TRIVIAL(debug) << "Thread-" << host << " downloaded " << downloadBlock->fileInfo.mName << " (" <<
+                                     downloadBlock->idx << ", " <<
                                      totalRead / (1024.0 * 1024.0) << " MB with " <<
                                      ((double) totalRead / (1024.0 * 1024.0)) / seconds << " MB/s)";
             // TODO Waiting for this takes ages ... measure

@@ -8,15 +8,14 @@ using namespace std;
 
 int main(int argc, char **argv) {
     initLogging();
-    if (argc != 1+4) {
-        cout << "Usage: " << argv[0] << " NAMENODE SOCKET #THREADS FILE" << endl;
+    if (argc != 1+3) {
+        cout << "Usage: " << argv[0] << " NAMENODE SOCKET FILE" << endl;
         exit(1);
     }
 
     string namenode = argv[1];
     string socket = strcmp(argv[2], "0") == 0 ? "" : argv[2];
-    const unsigned threadCount = atoi(argv[3]);
-    string path = argv[4];
+    string path = argv[3];
 
     auto start = std::chrono::high_resolution_clock::now();
 
@@ -29,7 +28,7 @@ int main(int argc, char **argv) {
     hdfsReader.read(path, nullptr, [&](Block &block) {
         len += block.fileInfo.mSize;
         BOOST_LOG_TRIVIAL(debug) << "Read block " << block.idx;
-    }, threadCount);
+    });
 
     auto stop = std::chrono::high_resolution_clock::now();
     double d_sec = ((double)std::chrono::duration_cast<std::chrono::milliseconds>(stop - start).count())/1000.0;

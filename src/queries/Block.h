@@ -35,6 +35,7 @@ public:
     set<string> hosts;
     uint32_t idx;
     shared_ptr<void> data;
+    size_t len;
     string host;
 };
 
