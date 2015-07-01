@@ -1,12 +1,12 @@
 #!/bin/bash
 
 if [ -z "$HADOOP_HOME" ]; then
-    echo "Set $HADOOP_HOME"
+    echo "Set HADOOP_HOME"
     exit 1
 fi
 
 if [ -z "$JAVA_HOME" ]; then
-    echo "Set $JAVA_HOME"
+    echo "Set JAVA_HOME"
     exit 1
 fi
 
