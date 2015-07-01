@@ -1,65 +1,39 @@
 #include <iostream>
-#include <iomanip>
+#include <string>
 
-#include "HdfsReader.h"
-#include "ParquetFile.h"
+#include "../queries/HdfsReader.h"
+#include "../queries/log.h"
 
 using namespace std;
 
 int main(int argc, char **argv) {
-    if(argc != 3) {
-        cout << "Usage: " << argv[0] << " NAMENODE PATH" << endl;
-    }
-    HdfsReader reader(argv[1]);
-    reader.connect();
-    reader.read(argv[2]);
-
-    ParquetFile file(static_cast<const uint8_t*>(reader.getcd ..
-            Buffer()), reader.getFileSize());
-    file.printSchema();
-
-    cout << "|";
-    vector<bool> p(file.getFileMetaData()->schema.size()-1);
-    for(unsigned i=1; i<file.getFileMetaData()->schema.size(); i++) {
-        auto &schemaElement = file.getFileMetaData()->schema[i];
-        cout << " " << setw(15) << schemaElement.name << " |";
-        p[i-1] = false;
-    }
-    cout << endl;
-
-    for(unsigned i=0; i<16; i++) {
-        p[i] = true;
+    initLogging();
+    if (argc != 1+4) {
+        cout << "Usage: " << argv[0] << " NAMENODE SOCKET #THREADS FILE" << endl;
+        exit(1);
     }
 
-    for(auto &rowGroup : file.getRowGroups()) {
-        vector<benchmark::ColumnChunk> columnChunks;
-        vector<benchmark::ColumnChunk::Reader> columnReaders;
-        for(auto &col : rowGroup.allColumns()) {
-            if(p[columnReaders.size()]) {
-                columnReaders.push_back(move(col.getReader()));
-            } else {
-                columnReaders.push_back(benchmark::ColumnChunk::Reader(&col));
-            }
-        }
+    string namenode = argv[1];
+    string socket = strcmp(argv[2], "0") == 0 ? "" : argv[2];
+    const unsigned threadCount = atoi(argv[3]);
+    string path = argv[4];
 
-        for(unsigned i=0; i<10; i++) {
-            cout << "|";
-            for(auto &columnReader : columnReaders) {
-                if(p[columnReader.getIdx()]) {
-                    try {
-                        assert(columnReader.hasNext());
-                        cout << " " << setw(15) << columnReader.readString() << " |";
-                    } catch(exception &e) {
-                        p[columnReader.getIdx()] = false;
-                        cout << " " << setw(15) << " EXC " << " |";
-                    }
-                } else {
-                    cout << " " << setw(15) << " NO " << " |";
-                }
-            }
-            cout << endl;
-        }
-    }
+    auto start = std::chrono::high_resolution_clock::now();
 
-    return 0;
+    HdfsReader hdfsReader(namenode, 9000, socket);
+    hdfsReader.connect();
+
+    auto start2 = std::chrono::high_resolution_clock::now();
+
+    size_t len = 0;
+    hdfsReader.read(path, nullptr, [&](Block &block) {
+        len += block.fileInfo.mSize;
+        BOOST_LOG_TRIVIAL(debug) << "Read block " << block.idx;
+    }, threadCount);
+
+    auto stop = std::chrono::high_resolution_clock::now();
+    double d_sec = ((double)std::chrono::duration_cast<std::chrono::milliseconds>(stop - start).count())/1000.0;
+    double d_sec2 = ((double)std::chrono::duration_cast<std::chrono::milliseconds>(stop - start2).count())/1000.0;
+
+    cout << ((double)len)/(1024.*1024.)/d_sec << " " << ((double)len)/(1024.*1024.)/d_sec2 << endl;
 }
