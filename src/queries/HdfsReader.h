@@ -317,9 +317,8 @@ private:
             EXPECT_NONZERO_EXC(file, "hdfsOpenFile2")
 
             downloadBlock->host = host;
-            downloadBlock->len =
-                    downloadBlock->fileInfo.mSize - downloadBlock->idx * downloadBlock->fileInfo.mBlockSize;
-            downloadBlock->data = shared_ptr<void>(malloc(downloadBlock->len), free);
+            downloadBlock->len = min(downloadBlock->fileInfo.mSize - downloadBlock->idx * downloadBlock->fileInfo.mBlockSize, downloadBlock->fileInfo.mBlockSize);
+			downloadBlock->data = shared_ptr<void>(malloc(downloadBlock->len), free);
 
             tOffset offset = downloadBlock->fileInfo.mBlockSize * ((uint64_t) downloadBlock->idx);
             int r = hdfsSeek(fs, file, offset);
@@ -328,7 +327,7 @@ private:
             tSize read = 0, totalRead = 0;
             do {
                 read = hdfsRead(fs, file, static_cast<char *>(downloadBlock->data.get()) + totalRead,
-                                downloadBlock->len - totalRead);
+                                downloadBlock->len);
                 EXPECT_NONNEGATIVE(read, "hdfsRead")
 
                 totalRead += read;

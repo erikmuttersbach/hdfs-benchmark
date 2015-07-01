@@ -26,7 +26,7 @@ int main(int argc, char **argv) {
 
     size_t len = 0;
     hdfsReader.read(path, nullptr, [&](Block &block) {
-        len += block.fileInfo.mSize;
+        len += block.len;
         BOOST_LOG_TRIVIAL(debug) << "Read block " << block.idx;
     });
 
