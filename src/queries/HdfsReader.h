@@ -142,30 +142,45 @@ public:
         boost::thread_group consumers;
         for (unsigned int i = 0; i < consumerCount; i++) {
             consumers.create_thread([i, &blockCount, &consumedBlocks, this, &func]() {
-                //uint32_t lastBlock = -1;
-
+                int lastBlock = -1;
                 while (true) {
                     // A) old impl. guarantees blocks arrive in order
-                    /*unique_lock<mutex> lock(blocksMutex);
-                    if(loadedBlocks.size() == 0 || loadedBlocks.peek().idx != lastBlock+1) {
-                        cv.wait(lock);
+                    if (blockCount == consumedBlocks) {
+                        break;
                     }
 
-                    if(loadedBlocks.peek().idx == lastBlock+1) {
-                        auto block = loadedBlocks.pop();
-                        lastBlock = block.idx;
-
-                        if(func) {
-                            func(block);
+                    Block *block = 0;
+                    {
+                        unique_lock<mutex> lock(blocksMutex);
+                        if (loadedBlocks.size() == 0) {
+                            BOOST_LOG_TRIVIAL(debug) << "Thread-" << i << " sleeping";
+                            cv.wait(lock);
+                            BOOST_LOG_TRIVIAL(debug) << "Thread-" << i << " woken up";
                         }
 
-                        if(block.idx+1 == blockCount) {
+                        if (blockCount == consumedBlocks) {
                             break;
+                        } else if (loadedBlocks.size() > 0) {
+                            if(!orderPreserving || loadedBlocks.peek().idx == lastBlock+1) {
+                                block = new Block(loadedBlocks.pop());
+                                consumedBlocks++;
+                                lastBlock = block->idx;
+                            }
                         }
-                    }*/
+                    }
+
+                    if (func && block != 0) {
+                        func(*block);
+                        BOOST_LOG_TRIVIAL(debug) << "Thread-" << i << " finished work";
+                    } else if (block == 0) {
+                        BOOST_LOG_TRIVIAL(debug) << "Thread-" << i << " found block == 0";
+                    }
+
+
+                    delete block;
 
                     // B) doesnt guarantee order
-                    if (blockCount == consumedBlocks) {
+                    /*if (blockCount == consumedBlocks) {
                         break;
                     }
 
@@ -194,7 +209,7 @@ public:
                     }
 
 
-                    delete block;
+                    delete block;*/
                 }
                 BOOST_LOG_TRIVIAL(debug) << "Thread-" << i << " finishing";
             });
@@ -243,6 +258,10 @@ public:
 
     void setSkipChecksums(bool skipChecksums) {
         this->skipChecksums = skipChecksums;
+    }
+
+    void setOrderPreserving(bool orderPreserving) {
+        this->orderPreserving = orderPreserving;
     }
 
 private:
@@ -361,6 +380,7 @@ private:
     int namenodePort = 9000;
     size_t bufferSize = 4096;
     bool skipChecksums = false;
+    bool orderPreserving = false;
 
     struct hdfsBuilder *hdfsBuilder;
     hdfsFS fs;

@@ -8,19 +8,21 @@ using namespace std;
 
 int main(int argc, char **argv) {
     initLogging();
-    if (argc != 1+3) {
-        cout << "Usage: " << argv[0] << " NAMENODE SOCKET FILE" << endl;
+    if (argc != 1+4) {
+        cout << "Usage: " << argv[0] << " NAMENODE SOCKET FILE ORDERED?" << endl;
         exit(1);
     }
 
     string namenode = argv[1];
     string socket = strcmp(argv[2], "0") == 0 ? "" : argv[2];
     string path = argv[3];
+    bool orderPreserving = strcmp(argv[4], "true") == 0 ? true : false;
 
     auto start = std::chrono::high_resolution_clock::now();
 
     HdfsReader hdfsReader(namenode, 9000, socket);
     hdfsReader.connect();
+    hdfsReader.setOrderPreserving(orderPreserving);
 
     auto start2 = std::chrono::high_resolution_clock::now();
 
