@@ -8,6 +8,7 @@ set(SOURCE_FILES Block.cpp Compare.cpp ParquetFile.cpp ColumnChunk.cpp sha256.cp
 add_executable(q1 q1.cpp ${SOURCE_FILES})
 add_executable(q14 q14.cpp ${SOURCE_FILES})
 add_executable(q17 q17.cpp ${SOURCE_FILES})
+add_executable(hdfs_reader_parallel main.cpp ${SOURCE_FILES})
 
 find_package(libhdfs REQUIRED)
 find_package(parquet REQUIRED)
@@ -22,3 +23,4 @@ set(LIBRARIES ${LIBHDFS_LIBRARY} ${PARQUET_LIBRARIES} ${THRIFT_LIBRARY} ${Boost_
 target_link_libraries(q1 ${LIBRARIES})
 target_link_libraries(q14 ${LIBRARIES})
 target_link_libraries(q17 ${LIBRARIES})
+target_link_libraries(hdfs_reader_parallel ${LIBRARIES})

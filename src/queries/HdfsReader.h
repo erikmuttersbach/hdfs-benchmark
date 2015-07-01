@@ -34,6 +34,10 @@ public:
 
     }
 
+    HdfsReader(string namenode, int port, string socket) : namenode(namenode), namenodePort(port), socket(socket) {
+
+    }
+
     ~HdfsReader() {
         if (hdfsBuilder) {
             hdfsFreeBuilder(hdfsBuilder);
