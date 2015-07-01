@@ -17,7 +17,6 @@ int main(int argc, char **argv) {
     string socket = strcmp(argv[2], "0") == 0 ? "" : argv[2];
     string path = argv[3];
     bool orderPreserving = strcmp(argv[4], "true") == 0 ? true : false;
-
     auto start = std::chrono::high_resolution_clock::now();
 
     HdfsReader hdfsReader(namenode, 9000, socket);
