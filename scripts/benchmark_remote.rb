@@ -41,19 +41,39 @@ end
 =end
 
 # Show read speed for different files
-[:hot, :cold]. each do |h|
-['/tpch/100/customer/customer.tbl', '/tpch/100/orders/orders.tbl', '/tpch/100/lineitem/lineitem.tbl'].each do |file|
+=begin
+[:hot]. each do |h|
+['/tpch/100/supplier/supplier.tbl', '/tpch/100/partsupp/partsupp.tbl'].each do |file|
     (1..5).each do |i|
         %x(for i in `seq 11 16`;do ssh scyper$i "/usr/local/bin/flush_fs_caches"; done;) if h == :cold
         
         start_ifstat
-        v = (`env LD_LIBRARY_PATH=./build/lib ./build/hdfs_reader -n scyper11 -s /var/run/hdfs-sockets/dn -f #{file} -b #{(1024*64)} -t scr`).gsub("\n", '').gsub(',', '.')
+        v = (`env LD_LIBRARY_PATH=./build/lib ./build/hdfs_reader_libhdfs3 -n scyper11 -s /var/run/hdfs-sockets/dn -f #{file} -b #{(1024*1024)} -t scr`).gsub("\n", '').gsub(',', '.')
         t_in, t_out = stop_ifstat
         print "#{v} #{t_in} #{t_out} "
     end 
     puts " "
 end
 end
+=end
+
+#env LD_LIBRARY_PATH=./build/lib ./build/hdfs_reader_parallel scyper11 /var/run/hdfs-sockets/dn /tpch/100/lineitem/lineitem.tbl false
+[:hot, :cold].each do |h|
+['true', 'false'].each do |order|
+['/tpch/100/supplier/supplier.tbl', '/tpch/100/customer/customer.tbl', '/tpch/100/partsupp/partsupp.tbl', '/tpch/100/orders/orders.tbl', '/tpch/100/lineitem/lineitem.tbl'].each do |file|
+    (1..5).each do |i|
+        %x(for i in `seq 11 16`;do ssh scyper$i "/usr/local/bin/flush_fs_caches"; done;) if h == :cold
+        
+        start_ifstat
+        v = (`env LD_LIBRARY_PATH=./build/lib ./build/hdfs_reader_parallel scyper11 /var/run/hdfs-sockets/dn #{file} #{order}`).gsub("\n", '').gsub(',', '.')
+        t_in, t_out = stop_ifstat
+        print "#{v} #{t_in} #{t_out} "
+    end 
+    puts " "
+end
+end
+end
+
 
 # Determine best block size
 =begin
