@@ -141,14 +141,18 @@ namespace {
 // q14, assumes statistics are known
 int main(int argc, char **argv) {
     initLogging();
-    if (argc != 5) {
-        cout << "Usage: " << argv[0] << " #THREADS NAMENODE LINEITEM-PATH PART-PATH" << endl;
+    if (argc != 1+5) {
+        cout << "Usage: " << argv[0] << " #THREADS NAMENODE SOCKET LINEITEM-PATH PART-PATH" << endl;
         exit(1);
     }
 
     const unsigned threadCount = atoi(argv[1]);
+    string namenode = argv[2];
+    string socket = (strcmp(argv[3], "-") == 0 ? "" : argv[3]);
+    string lineitemPath = argv[4];
+    string partPath = argv[5];
 
-    HdfsReader hdfsReader(argv[2]);
+    HdfsReader hdfsReader(namenode, 9000, socket);
     hdfsReader.connect();
 
     auto start = std::chrono::high_resolution_clock::now();
@@ -165,7 +169,7 @@ int main(int argc, char **argv) {
     boost::atomic <uint32_t> idx1Counter(0);
 
     // Read lineitem and build up the hash index
-    hdfsReader.read(argv[3], [&](vector<string> &paths) {
+    hdfsReader.read(lineitemPath, [&](vector<string> &paths) {
         l_extendedprice.resize(paths.size());
         l_discount.resize(paths.size());
         l_shipdate.resize(paths.size());
@@ -222,7 +226,7 @@ int main(int argc, char **argv) {
     vector<double> dividend, divisor;
     boost::atomic<unsigned> idxCounter(0);
 
-    hdfsReader.read(argv[4], [&](vector<string> &paths) {
+    hdfsReader.read(partPath, [&](vector<string> &paths) {
         dividend.resize(paths.size());
         divisor.resize(paths.size());
     }, [&](Block block) {

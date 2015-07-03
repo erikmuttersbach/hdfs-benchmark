@@ -19,14 +19,18 @@ struct LineitemMatch {
 
 int main(int argc, char **argv) {
     initLogging();
-    if (argc != 5) {
-        cout << "Usage: " << argv[0] << " #THREADS NAMENODE LINEITEM-PATH PART-PATH" << endl;
+    if (argc != 1+5) {
+        cout << "Usage: " << argv[0] << " #THREADS NAMENODE SOCKET LINEITEM-PATH PART-PATH" << endl;
         exit(1);
     }
 
     const unsigned threadCount = atoi(argv[1]);
+    string namenode = argv[2];
+    string socket = (strcmp(argv[3], "-") == 0 ? "" : argv[3]);
+    string lineitemPath = argv[4];
+    string partPath = argv[5];
 
-    HdfsReader hdfsReader(argv[2]);
+    HdfsReader hdfsReader(namenode, 9000, socket);
     hdfsReader.connect();
 
     auto start = std::chrono::high_resolution_clock::now();
@@ -44,7 +48,7 @@ int main(int argc, char **argv) {
     vector<bool> partMatches;
     partMatches.resize(20000000);
 
-    hdfsReader.read(argv[4], [&](vector<string> &paths) {
+    hdfsReader.read(lineitemPath, [&](vector<string> &paths) {
 
     }, [&](Block block) {
         ParquetFile file(static_cast<const uint8_t *>(block.data.get()), block.fileInfo.mSize);
@@ -84,7 +88,7 @@ int main(int argc, char **argv) {
     // Read lineitem
     vector<LineitemMatch> matched;
     mutex matchedMutex; // TODO optimizable
-    hdfsReader.read(argv[3], [&](vector<string> &paths) {
+    hdfsReader.read(partPath, [&](vector<string> &paths) {
 
     }, [&](Block block) {
         ParquetFile file(static_cast<const uint8_t *>(block.data.get()), block.fileInfo.mSize);

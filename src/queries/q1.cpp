@@ -17,14 +17,17 @@ static void print(const char *header, double *values) {
 
 int main(int argc, char **argv) {
     initLogging();
-    if (argc != 4) {
-        cout << "Usage: " << argv[0] << " #THREADS NAMENODE LINEITEM-PATH" << endl;
+    if (argc != 1+4) {
+        cout << "Usage: " << argv[0] << " #THREADS NAMENODE SOCKET LINEITEM-PATH" << endl;
         exit(1);
     }
 
     const unsigned threadCount = atoi(argv[1]);
+    string namenode = argv[2];
+    string socket = (strcmp(argv[3], "-") == 0 ? "" : argv[3]);
+    string lineitemPath = argv[4];
 
-    HdfsReader hdfsReader(argv[2]);
+    HdfsReader hdfsReader(namenode, 9000, socket);
     hdfsReader.connect();
 
     // Intermediate and result data structures
@@ -44,7 +47,7 @@ int main(int argc, char **argv) {
 
     // Start Reading the directory of parquet files, process the files as
     // they are available
-    hdfsReader.read(argv[3], [&](vector<string> &paths){
+    hdfsReader.read(lineitemPath, [&](vector<string> &paths){
         _groups.resize(paths.size());
     },[&](Block block) {
         ParquetFile file(static_cast<const uint8_t *>(block.data.get()), block.fileInfo.mSize);
