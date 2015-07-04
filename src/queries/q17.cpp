@@ -48,7 +48,7 @@ int main(int argc, char **argv) {
     vector<bool> partMatches;
     partMatches.resize(20000000);
 
-    hdfsReader.read(lineitemPath, [&](vector<string> &paths) {
+    hdfsReader.read(partPath, [&](vector<string> &paths) {
 
     }, [&](Block block) {
         ParquetFile file(static_cast<const uint8_t *>(block.data.get()), block.fileInfo.mSize);
@@ -88,7 +88,7 @@ int main(int argc, char **argv) {
     // Read lineitem
     vector<LineitemMatch> matched;
     mutex matchedMutex; // TODO optimizable
-    hdfsReader.read(partPath, [&](vector<string> &paths) {
+    hdfsReader.read(lineitemPath, [&](vector<string> &paths) {
 
     }, [&](Block block) {
         ParquetFile file(static_cast<const uint8_t *>(block.data.get()), block.fileInfo.mSize);
