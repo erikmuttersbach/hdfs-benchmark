@@ -83,11 +83,11 @@ int main(int argc, char **argv) {
                 }
             }
         }
-    }, 4);
+    }, threadCount);
 
     // Read lineitem
     vector<LineitemMatch> matched;
-    mutex matchedMutex; // TODO optimizable
+    mutex matchedMutex;
     hdfsReader.read(lineitemPath, [&](vector<string> &paths) {
 
     }, [&](Block block) {
@@ -111,7 +111,7 @@ int main(int argc, char **argv) {
                 }
             }
         }
-    });
+    }, threadCount);
 
     sort(matched.begin(), matched.end(), [](const LineitemMatch &a, const LineitemMatch &b) {
         return a.partkey < b.partkey;
@@ -135,7 +135,6 @@ int main(int argc, char **argv) {
 
         index = end;
     }
-
     double result = sum / 7.0;
 
     auto stop = std::chrono::high_resolution_clock::now();
